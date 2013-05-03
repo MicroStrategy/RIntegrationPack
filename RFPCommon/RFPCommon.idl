@@ -1,0 +1,73 @@
+//=======================================================================
+//		Copyright 2013 MicroStrategy, Inc.
+//
+//		Licensed under the Apache License, Version 2.0 (the "License");
+//		you may not use this file except in compliance with the License.
+//		You may obtain a copy of the License at
+//
+//		http://www.apache.org/licenses/LICENSE-2.0
+//
+//		Unless required by applicable law or agreed to in writing, software
+//		distributed under the License is distributed on an "AS IS" BASIS,
+//		WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//		See the License for the specific language governing permissions and
+//		limitations under the License.
+//
+//		File:	RFPCommon.idl
+//
+//		Desc:	IDL source for RScriptFunctions.dll.
+//=======================================================================
+
+// This file will be processed by the MIDL tool to
+// produce the type library (RFPCommon.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+	[
+		object,
+		uuid(7C7A60E3-6A50-49A8-B6A0-4BBF63A65651),
+		dual,
+		helpstring("IRFPCommonPKG Interface"),
+		pointer_default(unique)
+	]
+	interface IRFPCommonPKG : IDispatch
+	{
+	};
+	[
+		object,
+		uuid(21469A5B-1489-4856-A086-414ABCB687E4),
+		dual,
+		helpstring("IRFPCommonNNGEN Interface"),
+		pointer_default(unique)
+	]
+	interface IRFPCommonNNGEN : IDispatch
+	{
+	};
+[
+	uuid(54FCC1D3-2E01-45AE-BE0B-B65AFB37DCCE),
+	version(1.0),
+	helpstring("RFPCommon 1.0 Type Library")
+]
+library RFPCommonLib
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+	importlib("M5typlib.dll");
+
+	[
+		uuid(EBE6A5E9-5DB6-4DE3-8120-64CF0D701E84),
+		helpstring("RFPCommonPKG class")
+	]
+	coclass RFPCommonPKG
+	{
+		[default] interface IRFPCommonPKG;
+	};
+	[
+		uuid(21E67383-C50F-4DDB-B984-9199AB627ED1),
+		helpstring("RFPCommonNNGEN class")
+	]
+	coclass RFPCommonNNGEN
+	{
+		[default] interface IRFPCommonNNGEN;
+	};
+};

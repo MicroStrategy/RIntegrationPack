@@ -1,0 +1,49 @@
+HKCR
+{
+	RFPCommon.RFPCommonPKG.1 = s 'RFPCommonPKG class'
+	{
+		CLSID = s '{EBE6A5E9-5DB6-4DE3-8120-64CF0D701E84}'
+	}
+	RFPCommon.RFPCommonPKG = s 'RFPCommonPKG class'
+	{
+		CLSID = s '{EBE6A5E9-5DB6-4DE3-8120-64CF0D701E84}'
+		CurVer = s 'RFPCommon.RFPCommonPKG.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {EBE6A5E9-5DB6-4DE3-8120-64CF0D701E84} = s 'RFPCommonPKG class'
+		{
+			ProgID = s 'RFPCommon.RFPCommonPKG.1'
+			VersionIndependentProgID = s 'RFPCommon.RFPCommonPKG'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Both'
+			}
+			'TypeLib' = s '{54FCC1D3-2E01-45AE-BE0B-B65AFB37DCCE}'
+		}
+	}
+	RFPCommon.RFPCommonNNGEN.1 = s 'RFPCommonNNGEN class'
+	{
+		CLSID = s '{21E67383-C50F-4DDB-B984-9199AB627ED1}'
+	}
+	RFPCommon.RFPCommonNNGEN = s 'RFPCommonNNGEN class'
+	{
+		CLSID = s '{21E67383-C50F-4DDB-B984-9199AB627ED1}'
+		CurVer = s 'RFPCommon.RFPCommonNNGEN.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {21E67383-C50F-4DDB-B984-9199AB627ED1} = s 'RFPCommonNNGEN class'
+		{
+			ProgID = s 'RFPCommon.RFPCommonNNGEN.1'
+			VersionIndependentProgID = s 'RFPCommon.RFPCommonNNGEN'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Both'
+			}
+			'TypeLib' = s '{54FCC1D3-2E01-45AE-BE0B-B65AFB37DCCE}'
+		}
+	}
+}

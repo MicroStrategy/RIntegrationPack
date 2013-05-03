@@ -1,0 +1,9 @@
+; RFPCommon.def : Declares the module parameters for the DLL.
+
+LIBRARY      "RScriptFunctions.dll"
+
+EXPORTS
+	DllCanUnloadNow     PRIVATE
+	DllGetClassObject   PRIVATE
+	DllRegisterServer   PRIVATE
+	DllUnregisterServer	PRIVATE
