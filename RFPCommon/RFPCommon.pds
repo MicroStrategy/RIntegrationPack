@@ -20,7 +20,7 @@
 </DSSOBJECT>
 
 <DSSOBJECT NAME="RScriptSimple" TYPE="Function" DESCRIPTION="Execute R script using scalar inputs/output." ID = "$RScriptSimple">
-  <FUNCTIONDEF A_TYPE="2" INDEX="1" TYPE="-1" PACKAGEID="$RFPCommonPKGPackage"
+  <FUNCTIONDEF A_TYPE="1" INDEX="1" TYPE="-1" PACKAGEID="$RFPCommonPKGPackage"
     INPARAMETERCOUNT="1" OUTPARAMETERCOUNT="1"
     REPEATEDPARAMETER="1" SQLTYPE="3" ISORDERSIG="false" />
 	<PARAMETERTYPE INDEX="1" NAME="inParam" TYPE="1" INPARAMETER = "true" />
@@ -167,9 +167,9 @@
   </DSSOBJECT>
 
   <DSSOBJECT NAME="RScriptAggU" TYPE="Function" DESCRIPTION="Execute R script using vector inputs and scalar output, unsorted." ID = "$RScriptAggU">
-  <FUNCTIONDEF A_TYPE="3" INDEX="4" TYPE="-1" PACKAGEID="$RFPCommonPKGPackage"
+  <FUNCTIONDEF A_TYPE="1" INDEX="4" TYPE="-1" PACKAGEID="$RFPCommonPKGPackage"
     INPARAMETERCOUNT="1" OUTPARAMETERCOUNT="1"
-    REPEATEDPARAMETER="0" SQLTYPE="1" />
+    REPEATEDPARAMETER="1" SQLTYPE="1" />
 	<PARAMETERTYPE INDEX="1" NAME="inParam" TYPE="2" INPARAMETER = "true" />
 	<PARAMETERTYPE INDEX="1" NAME="result" TYPE="1" INPARAMETER = "false" />
   <FUNC_PROPERTYSET>
@@ -216,9 +216,9 @@
 </DSSOBJECT>
 
   <DSSOBJECT NAME="RScriptAgg" TYPE="Function" DESCRIPTION="Execute R script using vector inputs and scalar output, with sorting." ID = "$RScriptAgg">
-    <FUNCTIONDEF A_TYPE="3" INDEX="5" TYPE="-1" PACKAGEID="$RFPCommonPKGPackage"
+    <FUNCTIONDEF A_TYPE="1" INDEX="5" TYPE="-1" PACKAGEID="$RFPCommonPKGPackage"
       INPARAMETERCOUNT="1" OUTPARAMETERCOUNT="1"
-      REPEATEDPARAMETER="0" SQLTYPE="1" ISORDERSIG="true" />
+      REPEATEDPARAMETER="1" SQLTYPE="1" ISORDERSIG="true" />
     <PARAMETERTYPE INDEX="1" NAME="inParam" TYPE="2" INPARAMETER = "true" />
     <PARAMETERTYPE INDEX="1" NAME="result" TYPE="1" INPARAMETER = "false" />
     <FUNC_PROPERTYSET>
