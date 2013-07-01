@@ -901,6 +901,24 @@ STDMETHODIMP CRSupport::SetRVarSA_mx(
 	return hr;
 }
 
+// handles string, scalar, non-repeated input
+void CRSupport::SetRVarStr(
+	const char *pName,
+	char *pData)
+{
+	SEXP	pRVector;
+
+	// allocate vector in R
+	m_Rf_protect_ptr(pRVector = m_Rf_allocVector_ptr(STRSXP, 1));
+
+	// initialize vector with input data
+	m_SET_STRING_ELT_ptr(pRVector, 0, m_mkChar_ptr(pData));
+
+	// define variable
+	m_defineVar_ptr(m_install_ptr(pName), pRVector, *m_R_GlobalEnv_ptr);
+	m_Rf_unprotect_ptr(1);
+}
+
 // handles _InputNames parameter
 void CRSupport::SetRVar_InputNames(
 	std::vector<char *> &vInputNames)

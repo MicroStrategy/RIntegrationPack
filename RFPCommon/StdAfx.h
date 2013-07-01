@@ -85,6 +85,7 @@ extern const char *RFP_ERRMSG;
 extern const char *RFP_WORKDIR;
 extern const char *RFP_EXFLAG;
 extern const char *RFP_INPUTNAMES;
+extern const char *RFP_PATH_DELIM;
 extern const char *RFP_ERRLOG;
 extern const char *RFP_ERRLOG_BKUP;
 extern const char *RFP_RSCRIPTS;

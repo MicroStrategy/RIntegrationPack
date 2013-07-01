@@ -134,7 +134,8 @@ public:
 		EnumDSSDataType dataType, VARIANT *pData, DSSData_Flags *pFlag);
 	STDMETHOD(SetRVarSA_mx)(const char *pName, Int_32 lPIndex, Int_32 nRows, Int_32 nCols, EnumDSSDataType dataType,
 		VARIANT *pData, DSSData_Flags *pFlag, bool bSafeArray, wchar_t *pErrMsg);
-	void CRSupport::SetRVar_InputNames(std::vector<char *> &vInputNames);
+	void SetRVarStr(const char *pName, char *pData);
+	void SetRVar_InputNames(std::vector<char *> &vInputNames);
 	Int_32 SubmitR(const char *script);
 	void GetRVar(const char *pName, Int_32 nSize, Int_32 *pRSize, double *pResult, DSSData_Flags *pFlag);
 	STDMETHOD(GetRVarNN)(const char *pName, Int_32 nStrLen, Int_32 nSize, EnumDSSDataType eExpectedDT, Int_32 *pRSize,

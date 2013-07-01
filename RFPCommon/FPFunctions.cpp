@@ -150,11 +150,12 @@ void CRFPCommonPKG::ReadRIPRegEntries()
 		if(m_szInstallFolder)
 		{
 			// init default RScripts folder (<InstallPath>/RScripts)
-			Int_32 lLength = strlen(m_szInstallFolder) + strlen(RFP_RSCRIPTS) + 1;
+			Int_32 lLength = strlen(m_szInstallFolder) + strlen(RFP_PATH_DELIM) + strlen(RFP_RSCRIPTS) + 1;
 			m_szDefRScriptsFolder = new char [lLength];
 			if(m_szDefRScriptsFolder)
 			{
 				RFP_STRCPY(m_szDefRScriptsFolder, lLength, m_szInstallFolder)
+				RFP_STRCAT(m_szDefRScriptsFolder, lLength, RFP_PATH_DELIM)
 				RFP_STRCAT(m_szDefRScriptsFolder, lLength, RFP_RSCRIPTS)
 			}
 			else
@@ -319,9 +320,12 @@ variables for later use.  The following locations may be used for logging
 		- default RScripts folder (<RIP install dir>\RScripts)
 	* RIP installation folder
 
-The RScriptFile parameter is also determined to be either relative or
-absolute.  If relative, an abosulte filename is contructed, based on the
-specified script repository.
+In addition, the _RScriptFile parameter is parsed to determine whether or
+not a path precedes the filename.  If no path is found, an abosulte filename
+is contructed, based on the specified script repository.
+
+If the working directory was not set via the _WorkingDir parameter, it will
+be set to the logging folder.
 *************************************************************************/
 STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 {
@@ -334,7 +338,7 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 		char szRScriptPath [_MAX_PATH];
 		szRScriptPath[0] = NULL_CHAR;
 
-		// determine if RScriptFile is relative or absolute
+		// determine if _RScriptFile includes a path
 		char szDrive[_MAX_DRIVE];
 		char szDir[_MAX_DIR];
 		_splitpath_s(m_sRScriptFile, szDrive, _MAX_DRIVE, szDir, _MAX_DIR, NULL, 0, NULL, 0);
@@ -344,7 +348,7 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 		Int_32 lDirLen = strlen(szDir);
 		if(lDriveLen + lDirLen > 0)
 		{
-			// RScriptFile is absolute...construct path, which may be used for logging
+			// path found...construct path, which may be used for logging
 			if(lDriveLen)
 			{
 				strcpy_s(szRScriptPath, _MAX_PATH, szDrive);
@@ -383,12 +387,21 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 			// use install folder for logging
 			pLogFileFolder = m_pPKG->GetInstallFolder();
 
+		if(!m_sWorkingDir && pLogFileFolder)
+		{
+			// working directory not specified...default to logging folder
+			Int32 lLength = strlen(pLogFileFolder) + 1;
+			m_sWorkingDir = new char [lLength];
+			if(!m_sWorkingDir) throw E_OUTOFMEMORY;
+			RFP_STRCPY(m_sWorkingDir, lLength, pLogFileFolder)
+		}
+
 		if(pLogFileFolder)
 		{
 			// usable folder found for logging...allocate storage for primary and backup logfile names
 			Int_32 lSrcLen = strlen(pLogFileFolder);
-			Int_32 lDestLen1 = lSrcLen + strlen(RFP_ERRLOG) + 1;
-			Int_32 lDestLen2 = lSrcLen + strlen(RFP_ERRLOG_BKUP) + 1;
+			Int_32 lDestLen1 = lSrcLen + strlen(RFP_PATH_DELIM) + strlen(RFP_ERRLOG) + 1;
+			Int_32 lDestLen2 = lSrcLen + strlen(RFP_PATH_DELIM) + strlen(RFP_ERRLOG_BKUP) + 1;
 			m_szErrLog = new char [lDestLen1];
 			if(m_szErrLog)
 			{
@@ -405,15 +418,17 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 			{
 				// create logfile names
 				RFP_STRCPY(m_szErrLog, lDestLen1, pLogFileFolder)
+				RFP_STRCAT(m_szErrLog, lDestLen1, RFP_PATH_DELIM)
 				RFP_STRCAT(m_szErrLog, lDestLen1, RFP_ERRLOG)
 				RFP_STRCPY(m_szErrLogBkup, lDestLen2, pLogFileFolder)
+				RFP_STRCAT(m_szErrLogBkup, lDestLen2, RFP_PATH_DELIM)
 				RFP_STRCAT(m_szErrLogBkup, lDestLen2, RFP_ERRLOG_BKUP)
 			}
 		}
 
 		if(strlen(szRScriptPath)==0)
 		{
-			// RScriptFile was relative...check for repository
+			// _RScriptFile did not include path...check for repository
 			if(pRepository)
 			{
 				// valid repository found...allocate buffer and construct full name
@@ -424,11 +439,13 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 					INIT_ERROR_MSG(L"Allocation error when processing R script repository location.")
 					throw E_OUTOFMEMORY;
 				}
-				sprintf_s(m_szReposRScriptFile, lLength, "%s\\%s", pRepository, m_sRScriptFile);
+				RFP_STRCPY(m_szReposRScriptFile, lLength, pRepository)
+				RFP_STRCAT(m_szReposRScriptFile, lLength, RFP_PATH_DELIM)
+				RFP_STRCAT(m_szReposRScriptFile, lLength, m_sRScriptFile)
 			}
 			else
 			{
-				// no repository, and R script filename is relative...cannot find script
+				// no repository, and _RScriptFile did not include path...cannot find script
 				INIT_ERROR_MSG(L"Valid script repository must be specified if using relative R script filename.")
 				throw E_FAIL;
 			}
@@ -708,30 +725,29 @@ STDMETHODIMP CRFPCommonNNGEN::ExRScript(
 		pRSupp->SetRVar(RFP_EXFLAG, 1, &dblFlag, NULL);
 
 		// submit R script
-		if(pRSupp->SubmitR(m_szReposRScriptFile ? m_szReposRScriptFile : m_sRScriptFile))
+		Int32 lErrCode = pRSupp->SubmitR(m_szReposRScriptFile ? m_szReposRScriptFile : m_sRScriptFile);
+
+		// check for script error message
+		VARIANT vScriptErrMsg;
+		vScriptErrMsg.vt = VT_BSTR;
+		vScriptErrMsg.bstrVal = NULL;
+		hr = pRSupp->GetRVarNN(RFP_ERRMSG, MAXSIZE_CHAR_STR, 1, DssDataTypeVarChar, &lRSize, &vScriptErrMsg, pFlag, m_sErrMsg);
+		CHECK_HR(L"Failure while fetching script error message.")
+
+		if((*pFlag==DssDataOk) && (SysStringLen(vScriptErrMsg.bstrVal) > 0))
+		{
+			// successfully retrieved script error message...return message to caller
+			INIT_ERROR_MSG2(L"%s: R script execution failed:  %s", vScriptErrMsg.bstrVal)
+			return E_FAIL;
+		}
+		else if(lErrCode > 0)
 		{
 			// script terminated abnormally...return default error message to caller
 			INIT_ERROR_MSG(
 				L"R script execution failed with no error message.  Possible causes: execution error outside tryCatch() or syntax error.")
 			return E_FAIL;
 		}
-		else
-		{
-			// script terminated normally...check for script error message
-			VARIANT vScriptErrMsg;
-			vScriptErrMsg.vt = VT_BSTR;
-			vScriptErrMsg.bstrVal = NULL;
-			hr = pRSupp->GetRVarNN(RFP_ERRMSG, MAXSIZE_CHAR_STR, 1, DssDataTypeVarChar, &lRSize, &vScriptErrMsg, pFlag, m_sErrMsg);
-			CHECK_HR(L"Failure while fetching script error message.")
-
-			if((*pFlag==DssDataOk) && (SysStringLen(vScriptErrMsg.bstrVal) > 0))
-			{
-				// successfully retrieved script error message...return message to caller
-				INIT_ERROR_MSG2(L"%s: R script execution failed:  %s", vScriptErrMsg.bstrVal)
-				return E_FAIL;
-			}
-			//else...no error message...assume script results available...fall through
-		}
+		//else...script terminated normally with no error message...assume script results available
 
 		// access output var info
 		pVI = m_pRSuppFO->GetOutput();

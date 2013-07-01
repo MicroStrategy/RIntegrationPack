@@ -99,8 +99,9 @@ const char *RFP_EXFLAG = "mstr.ExFlag";
 const char *RFP_INPUTNAMES = "mstr.InputNames";
 
 // error log file names
-const char *RFP_ERRLOG = "/RScriptErrors.log";
-const char *RFP_ERRLOG_BKUP = "/RScriptErrorsBkup.log";
+const char *RFP_PATH_DELIM = "\\";
+const char *RFP_ERRLOG = "RScriptErrors.log";
+const char *RFP_ERRLOG_BKUP = "RScriptErrorsBkup.log";
 
 // default script repository
-const char *RFP_RSCRIPTS = "/RScripts";
+const char *RFP_RSCRIPTS = "RScripts";

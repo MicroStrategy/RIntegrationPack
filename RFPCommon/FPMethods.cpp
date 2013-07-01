@@ -644,13 +644,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 
 							// verify that specified folder exists
 							struct stat fInfo;
-							if(stat(m_sWorkingDir, &fInfo)==0)
-							{
-								// folder exists...save Variant (will be passed to R later)
-								hr = VariantCopy(&m_vWorkingDir, pValue);
-								if(FAILED(hr)) return hr;
-							}
-							else
+							if(stat(m_sWorkingDir, &fInfo)!=0)
 							{
 								// folder does not exist...ignore it
 								delete [] m_sWorkingDir;
@@ -765,12 +759,8 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 							}
 
 							if(m_sWorkingDir)
-							{
 								// working directory exists...pass to R
-								RFP_MBSTOWCS(wcsVarName, RFP_WORKDIR)
-								hr = m_pRSuppFO->GetRSupp()->SetRVarV(RFP_WORKDIR, &m_vWorkingDir, NULL);
-								CHECK_SETRVAR_HR(wcsVarName)
-							}
+								m_pRSuppFO->GetRSupp()->SetRVarStr(RFP_WORKDIR, m_sWorkingDir);
 						}
 						else
 							return hr;

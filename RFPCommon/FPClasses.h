@@ -156,7 +156,6 @@ private:
 	bool			m_bParseOK;								// R script parse flag
 	char			*m_sRScriptFile;						// value of _RScriptFile property (may be absolute or relative)
 	char			*m_sWorkingDir;							// value of _WorkingDir property
-	CComVariant		m_vWorkingDir;							// value of _WorkingDir property (Variant version)
 	char			*m_sOutputVar;							// value of _OutputVar property
 	char			*m_sInputNames;							// value of _InputNames property
 	VARIANT_BOOL	m_bIsNullProcessable;					// value of _AllowNulls property
