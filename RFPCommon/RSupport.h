@@ -25,6 +25,9 @@
 #include <Rinternals.h>
 #include <Rembedded.h>
 
+#include <R_ext/Boolean.h>
+extern Rboolean R_Interactive;
+
 // R type definitions
 typedef int (*p_TYPEOF)(SEXP x);
 typedef int (*pR_finite)(double);
@@ -92,11 +95,12 @@ private:
 	p_STRING_ELT		m_STRING_ELT_ptr;
 	pRf_translateChar	m_translateChar_ptr;
 	pR_finite			m_R_finite_ptr;
-	pRf_nrows			m_pRf_nrows_ptr;
-	double				*m_pNaReal_ptr;
-	int					*m_pNaInteger_ptr;
-	int					*m_pNaLogical_ptr;
-	SEXP				*m_pNaString_ptr;
+	pRf_nrows			m_Rf_nrows_ptr;
+	double				*m_R_NaReal_ptr;
+	int					*m_R_NaInt_ptr;
+	int					*m_R_NaLogical_ptr;
+	SEXP				*m_R_NaString_ptr;
+	Rboolean			*m_R_Interactive_ptr;
 	pRf_initEmbeddedR	m_Rf_initEmbeddedR_ptr;
 
 	STDMETHOD(InitR)();
@@ -128,18 +132,31 @@ public:
 	void SetRVar(const char *pName, Int_32 nSize, double *pData, DSSData_Flags *pFlag);
 	void SetRVar_rp(const char *pName, Int_32 nSize, Int_32 lPIndex, Int_32 lRepCnt, double *pData, DSSData_Flags *pFlag);
 	STDMETHOD(SetRVar_mx)(const char *pName, Int_32 lPIndex, Int_32 nRows, Int_32 nCols, double *pData, DSSData_Flags *pFlag);
-	STDMETHOD(SetRVarV)(const char *pName, VARIANT *pValue, DSSData_Flags *pFlag);
-	STDMETHOD(SetRVarSA)(const char *pName, Int_32 nSize, EnumDSSDataType dataType, VARIANT *pData, DSSData_Flags *pFlag);
+	STDMETHOD(SetRVarV)(const char *pName, IOBUFFER_PAIR *pioBuffer, VARIANT *pValue, DSSData_Flags *pFlag);
+	STDMETHOD(SetRVarSA)(const char *pName, Int_32 nSize, EnumDSSDataType dataType, IOBUFFER_PAIR *pioBuffer, VARIANT *pData,
+		DSSData_Flags *pFlag);
 	STDMETHOD(SetRVarSA_rp)(const char *pName, Int_32 nSize, Int_32 lPIndex, Int_32 lInCnt, Int_32 lRepCnt,
-		EnumDSSDataType dataType, VARIANT *pData, DSSData_Flags *pFlag);
+		EnumDSSDataType dataType, IOBUFFER_PAIR *pioBuffer, VARIANT *pData, DSSData_Flags *pFlag);
 	STDMETHOD(SetRVarSA_mx)(const char *pName, Int_32 lPIndex, Int_32 nRows, Int_32 nCols, EnumDSSDataType dataType,
-		VARIANT *pData, DSSData_Flags *pFlag, bool bSafeArray, wchar_t *pErrMsg);
+		IOBUFFER_PAIR *pioBuffer, VARIANT *pData, DSSData_Flags *pFlag, bool bSafeArray, wchar_t *pErrMsg);
 	void SetRVarStr(const char *pName, char *pData);
 	void SetRVar_InputNames(std::vector<char *> &vInputNames);
 	Int_32 SubmitR(const char *script);
 	void GetRVar(const char *pName, Int_32 nSize, Int_32 *pRSize, double *pResult, DSSData_Flags *pFlag);
-	STDMETHOD(GetRVarNN)(const char *pName, Int_32 nStrLen, Int_32 nSize, EnumDSSDataType eExpectedDT, Int_32 *pRSize,
+	STDMETHOD(GetRVarNN)(const char *pName, Int_32 nSize, EnumDSSDataType eExpectedDT, IOBUFFER_PAIR *pioBuffer, Int_32 *pRSize,
 		VARIANT *pResult, DSSData_Flags *pFlag, wchar_t *pErrMsg);
+	void CheckBufLen(size_t lStrLen, IOBUFFER_PAIR *pioBuffer)
+	{
+		lStrLen = (lStrLen > RFP_MAX_STR_LENGTH) ? RFP_MAX_STR_LENGTH : lStrLen;
+		if(lStrLen > pioBuffer->second)
+		{
+			delete [] pioBuffer->first;
+			pioBuffer->first = new char[RFP_BUFLEN(lStrLen)];
+			if(!pioBuffer->first)
+				throw E_OUTOFMEMORY;
+			pioBuffer->second = lStrLen;
+		}
+	}
 };
 
 class CVarInfo

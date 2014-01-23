@@ -164,6 +164,7 @@ private:
 	char			*m_szReposRScriptFile;					// used if accessing script from repository
 	char			*m_szErrLog;							// logfile (absolute path, including filename)
 	char			*m_szErrLogBkup;						// backup logfile (absolute path, including filename)
+	IOBUFFER_PAIR	m_ioBuffer;								// buffer used to pass strings to R
 
 	Int_32 CurrentDateTime(char *pBuffer, Int_32 lBufSize)
 	{

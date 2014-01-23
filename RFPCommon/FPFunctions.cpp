@@ -68,11 +68,11 @@ void CRFPCommonPKG::ReadRIPKeyValue(
 			if(dwValType==REG_SZ)
 			{
 				// expected type...check if folder specified
-				Int_32 lSrcLen = wcslen(sKeyValue);
-				if(lSrcLen > 0)
+				size_t uiSrcLen = wcslen(sKeyValue);
+				if(uiSrcLen > 0)
 				{
 					// folder specified...allocate destination buffer
-					(*pKeyValue) = new char [lSrcLen + 1];
+					(*pKeyValue) = new char [RFP_BUFLEN(uiSrcLen)];
 					if(!(*pKeyValue))
 					{
 						INIT_ERROR_MSG2(L"%s: Allocation error when processing registry key value '%s'.", bstrKeyValue)
@@ -80,8 +80,7 @@ void CRFPCommonPKG::ReadRIPKeyValue(
 					}
 
 					// convert wchar to char
-					size_t returnLen;
-					wcstombs_s(&returnLen, (*pKeyValue), lSrcLen+1, sKeyValue, lSrcLen);
+					RFP_WCSTOMBS((*pKeyValue), RFP_BUFLEN(uiSrcLen), sKeyValue)
 				}
 				//else...no folder specified
 			}
@@ -487,15 +486,15 @@ void CRFPCommonNNGEN::LogErrMsg(
 			{
 				// file names created...allocate message buffer
 				Int_32 lBufSize = lMsgLen + RFP_DATETIME_SIZE;
-				char *szBuffer = new char [lBufSize];
+				char *szBuffer = new char [RFP_BUFLEN(lBufSize)];
 				if(szBuffer)
 				{
 					// initialize message buffer with date/time
 					Int_32 lLength = CurrentDateTime(szBuffer, lBufSize);
 
 					// convert wchar error message to char
-					size_t returnLen;
-					wcstombs_s(&returnLen, &szBuffer[lLength], lBufSize-lLength, pErrMsg, lMsgLen);
+					char *pTemp = &szBuffer[lLength];
+					RFP_WCSTOMBS(pTemp, RFP_BUFLEN(lBufSize)-lLength, pErrMsg)
 
 					// add newline
 					RFP_STRCAT(szBuffer, lBufSize, NEWLINE)
@@ -731,7 +730,7 @@ STDMETHODIMP CRFPCommonNNGEN::ExRScript(
 		VARIANT vScriptErrMsg;
 		vScriptErrMsg.vt = VT_BSTR;
 		vScriptErrMsg.bstrVal = NULL;
-		hr = pRSupp->GetRVarNN(RFP_ERRMSG, MAXSIZE_CHAR_STR, 1, DssDataTypeVarChar, &lRSize, &vScriptErrMsg, pFlag, m_sErrMsg);
+		hr = pRSupp->GetRVarNN(RFP_ERRMSG, 1, DssDataTypeVarChar, &m_ioBuffer, &lRSize, &vScriptErrMsg, pFlag, m_sErrMsg);
 		CHECK_HR(L"Failure while fetching script error message.")
 
 		if((*pFlag==DssDataOk) && (SysStringLen(vScriptErrMsg.bstrVal) > 0))
@@ -763,7 +762,7 @@ STDMETHODIMP CRFPCommonNNGEN::ExRScript(
 			pResult->parray = SafeArrayCreate(VT_VARIANT, 1, &lSABound);
 
 			// fetch results from R
-			hr = pRSupp->GetRVarNN(pVI->GetVarName(), MAXSIZE_CHAR_STR, nSize, pVI->GetDataType(), &lRSize, pResult, pFlag, m_sErrMsg);
+			hr = pRSupp->GetRVarNN(pVI->GetVarName(), nSize, pVI->GetDataType(), &m_ioBuffer, &lRSize, pResult, pFlag, m_sErrMsg);
 			CHECK_HR(L"Failure while fetching results.")
 
 			// set number of elements returned (must be <= nSize)
@@ -777,7 +776,7 @@ STDMETHODIMP CRFPCommonNNGEN::ExRScript(
 			case DssDataTypeDouble:
 				{
 					pResult->vt = VT_R8;
-					hr = pRSupp->GetRVarNN(pVI->GetVarName(), 1, nSize, pVI->GetDataType(), &lRSize, pResult, pFlag, m_sErrMsg);
+					hr = pRSupp->GetRVarNN(pVI->GetVarName(), nSize, DssDataTypeDouble, NULL, &lRSize, pResult, pFlag, m_sErrMsg);
 					CHECK_HR(L"Failure while fetching results.")
 					break;
 				}
@@ -785,8 +784,7 @@ STDMETHODIMP CRFPCommonNNGEN::ExRScript(
 				{
 					pResult->vt = VT_BSTR;
 					pResult->bstrVal = NULL;
-					hr = pRSupp->GetRVarNN(pVI->GetVarName(), MAXSIZE_CHAR_STR, nSize, pVI->GetDataType(), &lRSize, pResult,
-						pFlag, m_sErrMsg);
+					hr = pRSupp->GetRVarNN(pVI->GetVarName(), nSize, DssDataTypeVarChar, &m_ioBuffer, &lRSize, pResult, pFlag, m_sErrMsg);
 					CHECK_HR(L"Failure while fetching results.")
 					break;
 				}

@@ -1,5 +1,5 @@
 //=======================================================================
-//		Copyright 2013 MicroStrategy, Inc.
+//		Copyright 2013-2014 MicroStrategy, Inc.
 //
 //		Licensed under the Apache License, Version 2.0 (the "License");
 //		you may not use this file except in compliance with the License.
@@ -183,19 +183,20 @@ STDMETHODIMP CRSupport::InitR()
 		m_STRING_ELT_ptr = (p_STRING_ELT)GetProcAddress(m_hRLib, "STRING_ELT");
 		m_translateChar_ptr = (pRf_translateChar)GetProcAddress(m_hRLib, "Rf_translateChar");
 		m_R_finite_ptr = (pR_finite)GetProcAddress(m_hRLib, "R_finite");
-		m_pRf_nrows_ptr = (pRf_nrows)GetProcAddress(m_hRLib, "Rf_nrows");
-		m_pNaReal_ptr = (double *)GetProcAddress(m_hRLib, "R_NaReal");
-		m_pNaInteger_ptr = (int *)GetProcAddress(m_hRLib, "R_NaInt");
-		m_pNaLogical_ptr = (int *)GetProcAddress(m_hRLib, "R_NaInt");
-		m_pNaString_ptr = (SEXP *)GetProcAddress(m_hRLib, "R_NaString");
+		m_Rf_nrows_ptr = (pRf_nrows)GetProcAddress(m_hRLib, "Rf_nrows");
+		m_R_NaReal_ptr = (double *)GetProcAddress(m_hRLib, "R_NaReal");
+		m_R_NaInt_ptr = (int *)GetProcAddress(m_hRLib, "R_NaInt");
+		m_R_NaLogical_ptr = (int *)GetProcAddress(m_hRLib, "R_NaInt");
+		m_R_NaString_ptr = (SEXP *)GetProcAddress(m_hRLib, "R_NaString");
 		m_Rf_initEmbeddedR_ptr = (pRf_initEmbeddedR)GetProcAddress(m_hRLib, "Rf_initEmbeddedR");
+		m_R_Interactive_ptr = (Rboolean *)GetProcAddress(m_hRLib, "R_Interactive");
 
 		if(m_Rf_initEmbeddedR_ptr && m_Rf_protect_ptr && m_lang2_ptr && m_install_ptr && m_mkChar_ptr && m_mkString_ptr &&
 			m_R_tryEval_ptr && m_Rf_unprotect_ptr && m_Rf_PrintValue_ptr && m_Rf_endEmbeddedR_ptr && m_Rf_allocVector_ptr &&
 			m_Rf_allocMatrix_ptr && m_REAL_ptr && m_INTEGER_ptr && m_LOGICAL_ptr && m_defineVar_ptr && m_asReal_ptr &&
 			m_ScalarInteger_ptr && m_length_ptr && m_TYPEOF_ptr && m_findVar_ptr && m_eval_ptr && m_R_GlobalEnv_ptr &&
 			m_R_UnboundValue_ptr && m_SET_STRING_ELT_ptr && m_STRING_ELT_ptr && m_translateChar_ptr && m_R_finite_ptr &&
-			m_pRf_nrows_ptr && m_pNaReal_ptr && m_pNaInteger_ptr && m_pNaLogical_ptr && m_pNaString_ptr)
+			m_Rf_nrows_ptr && m_R_NaReal_ptr && m_R_NaInt_ptr && m_R_NaLogical_ptr && m_R_NaString_ptr && m_R_Interactive_ptr)
 		{
 			Int32 lInitR = m_Rf_initEmbeddedR_ptr(sizeof(localArgs) / sizeof(localArgs[0]), localArgs);
 			if(!lInitR)
@@ -204,6 +205,9 @@ STDMETHODIMP CRSupport::InitR()
 				INIT_ERROR_MSG(L"Initialization of R environment failed.")
 				return E_FAIL;
 			}
+
+			// set session to 'not interactive'
+			*m_R_Interactive_ptr = FALSE;
 
 			// success
 			return S_OK;
@@ -253,7 +257,7 @@ void CRSupport::SetRVar(
 			// initialize value with input data
 			*(pRValues+i) = pData[i];
 		else // missing...set to NA
-			*(pRValues+i) = *m_pNaReal_ptr;
+			*(pRValues+i) = *m_R_NaReal_ptr;
 	}
 
 	// define variable
@@ -294,7 +298,7 @@ void CRSupport::SetRVar_rp(
 			// initialize value with input data
 			*(pRValues+j) = pData[i];
 		else // missing...set to NA
-			*(pRValues+j) = *m_pNaReal_ptr;
+			*(pRValues+j) = *m_R_NaReal_ptr;
 		j++;
 	}
 
@@ -341,7 +345,7 @@ STDMETHODIMP CRSupport::SetRVar_mx(
 				// initialize value with input data
 				*(pRValues+j) = pData[i];
 			else // missing...set to NA
-				*(pRValues+j) = *m_pNaReal_ptr;
+				*(pRValues+j) = *m_R_NaReal_ptr;
 		}
 
 		if(lPIndex==0)
@@ -364,6 +368,7 @@ STDMETHODIMP CRSupport::SetRVar_mx(
 // handles variant properties for all FPs, and variant, scalar, non-repeated inputs for NNSIM and NNGEN FPs
 STDMETHODIMP CRSupport::SetRVarV(
 	const char *pName,
+	IOBUFFER_PAIR *pioBuffer,
 	VARIANT *pValue,
 	DSSData_Flags *pFlag)
 {
@@ -398,7 +403,7 @@ STDMETHODIMP CRSupport::SetRVarV(
 					*pRValue = pValue->dblVal;
 				}
 				else // DssDataNull...set to NA
-					*pRValue = *m_pNaReal_ptr;
+					*pRValue = *m_R_NaReal_ptr;
 
 				// define variable
 				m_defineVar_ptr(m_install_ptr(pName), pRVector, *m_R_GlobalEnv_ptr);
@@ -418,7 +423,7 @@ STDMETHODIMP CRSupport::SetRVarV(
 					// convert boolean to 0 (false) or 1 (true)
 					*pRValue = (pValue->boolVal==VARIANT_TRUE) ? 1 : 0;
 				else // DssDataNull...set to NA
-					*pRValue = *m_pNaLogical_ptr;
+					*pRValue = *m_R_NaLogical_ptr;
 
 				// define variable
 				m_defineVar_ptr(m_install_ptr(pName), pRVector, *m_R_GlobalEnv_ptr);
@@ -435,19 +440,16 @@ STDMETHODIMP CRSupport::SetRVarV(
 				bValid = pFlag ? (*pFlag==DssDataOk) : true;
 				if(bValid)
 				{
-					// convert variant string to char (handles ZLS)
-					Int_32 lSrcLen = SysStringLen(pValue->bstrVal);
-					char *pStrVal = new char [lSrcLen + 1];
-					if(!pStrVal) throw E_OUTOFMEMORY;
-					size_t returnLen;
-					wcstombs_s(&returnLen, pStrVal, lSrcLen+1, pValue->bstrVal, lSrcLen);
+					// convert variant string to char
+					size_t uiSrcLen = SysStringLen(pValue->bstrVal);
+					CheckBufLen(uiSrcLen, pioBuffer);
+					RFP_WCSTOMBS(pioBuffer->first, RFP_BUFLEN(pioBuffer->second), pValue->bstrVal)
 
 					// initialize value with input data
-					m_SET_STRING_ELT_ptr(pRVector, 0, m_mkChar_ptr(pStrVal));
-					delete [] pStrVal;
+					m_SET_STRING_ELT_ptr(pRVector, 0, m_mkChar_ptr(pioBuffer->first));
 				}
 				else // missing...set to NA
-					m_SET_STRING_ELT_ptr(pRVector, 0, *m_pNaString_ptr);
+					m_SET_STRING_ELT_ptr(pRVector, 0, *m_R_NaString_ptr);
 
 				// define variable
 				m_defineVar_ptr(m_install_ptr(pName), pRVector, *m_R_GlobalEnv_ptr);
@@ -479,6 +481,7 @@ STDMETHODIMP CRSupport::SetRVarSA(
 	const char *pName,
 	Int_32 nSize,
 	EnumDSSDataType dataType,
+	IOBUFFER_PAIR *pioBuffer,
 	VARIANT *pData,
 	DSSData_Flags *pFlag)
 {
@@ -520,7 +523,7 @@ STDMETHODIMP CRSupport::SetRVarSA(
 						VariantClear(&varElem);
 					}
 					else // missing...set to NA
-						*(pRValues+i) = *m_pNaReal_ptr;
+						*(pRValues+i) = *m_R_NaReal_ptr;
 				}
 
 				// define variable
@@ -531,10 +534,6 @@ STDMETHODIMP CRSupport::SetRVarSA(
 			}
 		case DssDataTypeVarChar:
 			{
-				Int_32 lSrcLen;
-				CHSTR strVal;
-				size_t returnLen;
-
 				// allocate vector of string in R
 				m_Rf_protect_ptr(pRVector = m_Rf_allocVector_ptr(STRSXP, nSize));
 
@@ -549,15 +548,16 @@ STDMETHODIMP CRSupport::SetRVarSA(
 						SafeArrayGetElement(pData->parray, (LONG *)&i, &varElem);
 						hr = VariantChangeType(&varElem, &varElem, 0, VT_BSTR);
 						if(FAILED(hr)) throw hr;
-						lSrcLen = SysStringLen(varElem.bstrVal);
-						wcstombs_s(&returnLen, strVal, MAXSIZE_CHAR_STR, varElem.bstrVal, lSrcLen);
+						size_t uiSrcLen = wcslen(varElem.bstrVal);
+						CheckBufLen(uiSrcLen, pioBuffer);
+						RFP_WCSTOMBS(pioBuffer->first, RFP_BUFLEN(pioBuffer->second), varElem.bstrVal)
 
 						// initialize value with input data
-						m_SET_STRING_ELT_ptr(pRVector, i, m_mkChar_ptr(strVal));
+						m_SET_STRING_ELT_ptr(pRVector, i, m_mkChar_ptr(pioBuffer->first));
 						VariantClear(&varElem);
 					}
 					else // missing...set to NA
-						m_SET_STRING_ELT_ptr(pRVector, i, *m_pNaString_ptr);
+						m_SET_STRING_ELT_ptr(pRVector, i, *m_R_NaString_ptr);
 				}
 
 				// define variable
@@ -593,6 +593,7 @@ STDMETHODIMP CRSupport::SetRVarSA_rp(
 	Int_32 lInCnt,
 	Int_32 lRepCnt,
 	EnumDSSDataType dataType,
+	IOBUFFER_PAIR *pioBuffer,
 	VARIANT *pData,
 	DSSData_Flags *pFlag)
 {
@@ -645,7 +646,7 @@ STDMETHODIMP CRSupport::SetRVarSA_rp(
 						VariantClear(&varElem);
 					}
 					else // missing...set to NA
-						*(pRValues+j) = *m_pNaReal_ptr;
+						*(pRValues+j) = *m_R_NaReal_ptr;
 					j++;
 				}
 
@@ -657,10 +658,6 @@ STDMETHODIMP CRSupport::SetRVarSA_rp(
 			}
 		case DssDataTypeVarChar:
 			{
-				Int_32 lSrcLen;
-				CHSTR strVal;
-				size_t returnLen;
-
 				// allocate vector of string in R
 				m_Rf_protect_ptr(pRVector = m_Rf_allocVector_ptr(STRSXP, lRepeatSize));
 
@@ -681,15 +678,16 @@ STDMETHODIMP CRSupport::SetRVarSA_rp(
 						SafeArrayGetElement(pData->parray, (LONG *)&i, &varElem);
 						hr = VariantChangeType(&varElem, &varElem, 0, VT_BSTR);
 						if(FAILED(hr)) throw hr;
-						lSrcLen = SysStringLen(varElem.bstrVal);
-						wcstombs_s(&returnLen, strVal, MAXSIZE_CHAR_STR, varElem.bstrVal, lSrcLen);
+						size_t uiSrcLen = wcslen(varElem.bstrVal);
+						CheckBufLen(uiSrcLen, pioBuffer);
+						RFP_WCSTOMBS(pioBuffer->first, RFP_BUFLEN(pioBuffer->second), varElem.bstrVal)
 
 						// initialize value with input data
-						m_SET_STRING_ELT_ptr(pRVector, j, m_mkChar_ptr(strVal));
+						m_SET_STRING_ELT_ptr(pRVector, j, m_mkChar_ptr(pioBuffer->first));
 						VariantClear(&varElem);
 					}
 					else // missing...set to NA
-						m_SET_STRING_ELT_ptr(pRVector, j, *m_pNaString_ptr);
+						m_SET_STRING_ELT_ptr(pRVector, j, *m_R_NaString_ptr);
 					j++;
 				}
 
@@ -725,6 +723,7 @@ STDMETHODIMP CRSupport::SetRVarSA_mx(
 	Int_32 nRows,
 	Int_32 nCols,
 	EnumDSSDataType dataType,
+	IOBUFFER_PAIR *pioBuffer,
 	VARIANT *pData,
 	DSSData_Flags *pFlag,
 	bool bSafeArray,
@@ -760,7 +759,7 @@ STDMETHODIMP CRSupport::SetRVarSA_mx(
 						throw E_FAIL;
 
 					// check number of rows
-					Int_32 lRowCount = m_pRf_nrows_ptr(pRMatrix);
+					Int_32 lRowCount = m_Rf_nrows_ptr(pRMatrix);
 					if(nRows > lRowCount)
 					{
 						// first input consisted of fewer rows (probably was a scalar)...matrix cannot handle
@@ -803,17 +802,13 @@ STDMETHODIMP CRSupport::SetRVarSA_mx(
 						VariantClear(&varElem);
 					}
 					else // missing...set to NA
-						*(pRValues+j) = *m_pNaReal_ptr;
+						*(pRValues+j) = *m_R_NaReal_ptr;
 				}
 
 				break;
 			}
 		case DssDataTypeVarChar:
 			{
-				Int_32 lSrcLen;
-				CHSTR strVal;
-				size_t returnLen;
-
 				if(lPIndex==0)
 					// allocate matrix of strings in R
 					m_Rf_protect_ptr(pRMatrix = m_Rf_allocMatrix_ptr(STRSXP, nRows, nCols));
@@ -826,7 +821,7 @@ STDMETHODIMP CRSupport::SetRVarSA_mx(
 						throw E_FAIL;
 
 					// check number of rows
-					Int_32 lRowCount = m_pRf_nrows_ptr(pRMatrix);
+					Int_32 lRowCount = m_Rf_nrows_ptr(pRMatrix);
 					if(nRows > lRowCount)
 					{
 						// first input consisted of fewer rows (probably was a scalar)...matrix cannot handle
@@ -855,24 +850,26 @@ STDMETHODIMP CRSupport::SetRVarSA_mx(
 							SafeArrayGetElement(pData->parray, (LONG *)&i, &varElem);
 							hr = VariantChangeType(&varElem, &varElem, 0, VT_BSTR);
 							if(FAILED(hr)) throw hr;
-							lSrcLen = SysStringLen(varElem.bstrVal);
-							wcstombs_s(&returnLen, strVal, MAXSIZE_CHAR_STR, varElem.bstrVal, lSrcLen);
+							size_t uiSrcLen = wcslen(varElem.bstrVal);
+							CheckBufLen(uiSrcLen, pioBuffer);
+							RFP_WCSTOMBS(pioBuffer->first, RFP_BUFLEN(pioBuffer->second), varElem.bstrVal)
 						}
 						else
 						{
 							// scalar input...convert to CHSTR
 							hr = VariantChangeType(&varElem, pData, 0, VT_BSTR);
 							if(FAILED(hr)) throw hr;
-							lSrcLen = SysStringLen(varElem.bstrVal);
-							wcstombs_s(&returnLen, strVal, MAXSIZE_CHAR_STR, varElem.bstrVal, lSrcLen);
+							size_t uiSrcLen = wcslen(varElem.bstrVal);
+							CheckBufLen(uiSrcLen, pioBuffer);
+							RFP_WCSTOMBS(pioBuffer->first, RFP_BUFLEN(pioBuffer->second), varElem.bstrVal)
 						}
 
 						// initialize value with input data
-						m_SET_STRING_ELT_ptr(pRMatrix, j, m_mkChar_ptr(strVal));
+						m_SET_STRING_ELT_ptr(pRMatrix, j, m_mkChar_ptr(pioBuffer->first));
 						VariantClear(&varElem);
 					}
 					else // missing...set to NA
-						m_SET_STRING_ELT_ptr(pRMatrix, j, *m_pNaString_ptr);
+						m_SET_STRING_ELT_ptr(pRMatrix, j, *m_R_NaString_ptr);
 				}
 
 				break;
@@ -1008,7 +1005,7 @@ void CRSupport::GetRVar(
 
 					// TODO: add your post-processing code here
 
-					if(iTemp!=*m_pNaInteger_ptr)
+					if(iTemp!=*m_R_NaInt_ptr)
 					{
 						pResult[i] = (double)iTemp;
 						pFlag[i] = DssDataOk;
@@ -1028,7 +1025,7 @@ void CRSupport::GetRVar(
 
 					// TODO: add your post-processing code here
 
-					if(iTemp!=*m_pNaLogical_ptr)
+					if(iTemp!=*m_R_NaLogical_ptr)
 					{
 						pResult[i] = (double)iTemp;
 						pFlag[i] = DssDataOk;
@@ -1057,20 +1054,19 @@ void CRSupport::GetRVar(
 
 STDMETHODIMP CRSupport::GetRVarNN(
 	const char *pName,
-	Int_32 nStrLen,
 	Int_32 nSize,
 	EnumDSSDataType eExpectedDT,
+	IOBUFFER_PAIR *pioBuffer,
 	Int_32 *pRSize,
 	VARIANT *pResult,
 	DSSData_Flags *pFlag,
 	wchar_t *pErrMsg)
 {
-	char			*sTemp			= NULL;
 	SEXP			s;
 	Int_32			lSize			= 0;
 	VARIANT			output;
-	wchar_t			wcsVarName[MAXSIZE_CHAR_STR+1];
-	wchar_t			wcBuffer[MAXSIZE_CHAR_STR+1];
+	wchar_t			wcsVarName[MAXSIZE_CHAR_STR];
+	wchar_t			*wcBuffer		= NULL;
 	HRESULT			hr				= S_OK;
 	const wchar_t	FUNC_NAME[]		= L"CRSupport::GetRVarNN";
 
@@ -1080,7 +1076,7 @@ STDMETHODIMP CRSupport::GetRVarNN(
 	{
 		// initialize
 		VariantInit(&output);
-		RFP_MBSTOWCS(wcsVarName, pName)
+		RFP_MBSTOWCS(wcsVarName, MAXSIZE_CHAR_STR, pName)
 
 		m_Rf_protect_ptr(s=m_findVar_ptr(m_install_ptr(pName), *m_R_GlobalEnv_ptr));
 		if(s==*m_R_UnboundValue_ptr)
@@ -1095,7 +1091,8 @@ STDMETHODIMP CRSupport::GetRVarNN(
 			lSize = (*pRSize > nSize) ? nSize : *pRSize;
 
 			// access results based on data type
-			switch(m_TYPEOF_ptr(s))
+			int iRType = m_TYPEOF_ptr(s);
+			switch(iRType)
 			{
 			case REALSXP:
 				{
@@ -1192,7 +1189,7 @@ STDMETHODIMP CRSupport::GetRVarNN(
 							// TODO: add your post-processing code here
 
 							// return single result and set flag
-							if(iTemp!=*m_pNaInteger_ptr)
+							if(iTemp!=*m_R_NaInt_ptr)
 							{
 								pResult->dblVal = (double)iTemp;
 								*pFlag = DssDataOk;
@@ -1215,7 +1212,7 @@ STDMETHODIMP CRSupport::GetRVarNN(
 
 							// TODO: add your post-processing code here
 
-							if(iTemp!=*m_pNaInteger_ptr)
+							if(iTemp!=*m_R_NaInt_ptr)
 							{
 								output.vt = VT_R8;
 								output.dblVal = (double)iTemp;
@@ -1260,7 +1257,7 @@ STDMETHODIMP CRSupport::GetRVarNN(
 							// TODO: add your post-processing code here
 
 							// return single result and set flag
-							if(iTemp!=*m_pNaLogical_ptr)
+							if(iTemp!=*m_R_NaLogical_ptr)
 							{
 								pResult->dblVal = (double)iTemp;
 								*pFlag = DssDataOk;
@@ -1283,7 +1280,7 @@ STDMETHODIMP CRSupport::GetRVarNN(
 
 							// TODO: add your post-processing code here
 
-							if(iTemp!=*m_pNaLogical_ptr)
+							if(iTemp!=*m_R_NaLogical_ptr)
 							{
 								output.vt = VT_R8;
 								output.dblVal = (double)iTemp;
@@ -1313,11 +1310,6 @@ STDMETHODIMP CRSupport::GetRVarNN(
 
 					SEXP strElem;
 
-					// allocate temp buffer
-					sTemp = new char[nStrLen];
-					if(!sTemp)
-						throw E_OUTOFMEMORY;
-
 					if(pResult->vt==VT_BSTR)
 					{
 						// scalar output...init flag
@@ -1330,15 +1322,21 @@ STDMETHODIMP CRSupport::GetRVarNN(
 							strElem = m_STRING_ELT_ptr(s, 0);
 
 							// check if NA
-							if(strElem != *m_pNaString_ptr)
+							if(strElem != *m_R_NaString_ptr)
 							{
-								// translate to char
-								RFP_STRCPY(sTemp, nStrLen, m_translateChar_ptr(strElem))
+								// determine output size
+								size_t uiOutLen = m_length_ptr(strElem);
+								uiOutLen = (uiOutLen > RFP_MAX_STR_LENGTH) ? RFP_MAX_STR_LENGTH : uiOutLen + 1;
 
-								// TODO: add your post-processing code here
+								// allocate destination buffer
+								wcBuffer = new wchar_t[uiOutLen];
+								if(!wcBuffer)
+									throw E_OUTOFMEMORY;
+
+								// copy output from R environment, converting to wide char
+								RFP_MBSTOWCS(wcBuffer, uiOutLen, m_translateChar_ptr(strElem))
 
 								// return single string and set flag
-								RFP_MBSTOWCS(wcBuffer, sTemp)
 								pResult->bstrVal = SysAllocString(wcBuffer);
 								if(!pResult->bstrVal)
 									throw E_OUTOFMEMORY;
@@ -1361,14 +1359,19 @@ STDMETHODIMP CRSupport::GetRVarNN(
 							strElem = m_STRING_ELT_ptr(s, i);
 
 							// check if NA
-							if(strElem != *m_pNaString_ptr)
+							if(strElem != *m_R_NaString_ptr)
 							{
-								RFP_STRCPY(sTemp, MAXSIZE_CHAR_STR, m_translateChar_ptr(strElem))
+								// determine output size
+								size_t uiOutLen = m_length_ptr(strElem);
+								uiOutLen = (uiOutLen > RFP_MAX_STR_LENGTH) ? RFP_MAX_STR_LENGTH : uiOutLen + 1;
 
-								// TODO: add your post-processing code here
+								// allocate destination buffer
+								wcBuffer = new wchar_t[uiOutLen];
+								if(!wcBuffer)
+									throw E_OUTOFMEMORY;
 
-								// convert to wide char
-								RFP_MBSTOWCS(wcBuffer, sTemp)
+								// copy output from R environment, converting to wide char
+								RFP_MBSTOWCS(wcBuffer, uiOutLen, m_translateChar_ptr(strElem))
 								output.vt = VT_BSTR;
 								output.bstrVal = SysAllocString(wcBuffer);
 								if(!output.bstrVal)
@@ -1378,6 +1381,10 @@ STDMETHODIMP CRSupport::GetRVarNN(
 								hr=SafeArrayPutElement(pResult->parray, (LONG *)&i, &output);
 								VariantClear(&output);
 								pFlag[i] = DssDataOk;
+
+								// release buffer
+								delete [] wcBuffer;
+								wcBuffer = NULL;
 							}
 							else
 								// element is NA...flag already set to invalid...save empty value to safe array
@@ -1390,10 +1397,9 @@ STDMETHODIMP CRSupport::GetRVarNN(
 			default:
 				{
 					// unsupported data type
-					*pRSize = 0;
-
-					// setting lSize to zero will result in all flags being set to invalid
-					lSize = 0;
+					INIT_ERROR_MSG_REF(L"%s: Actual data type %s (%d) is not compatible with expected data type %s for output '%s'.",
+						RFP_GET_RDT_STR(iRType), iRType, RFP_GET_DT_STR(eExpectedDT), wcsVarName)
+					throw E_FAIL;
 				}
 			}
 		}
@@ -1414,7 +1420,7 @@ STDMETHODIMP CRSupport::GetRVarNN(
 	}
 
 	// clean up
-	delete [] sTemp;
+	delete [] wcBuffer;
 
 	return hr;
 }
@@ -1673,6 +1679,7 @@ INPUTS:		sRScript			R script absolute filename
 			sOutputVar			the output variable specified by the R-FP metric
 OUTPUTS:	none
 RETURNS:	S_OK
+			E_OUTOFMEMORY		allocation error
 			E_FAIL				script file name not specified
 								script file not found
 								open of script file failed
@@ -1694,62 +1701,86 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 	char			*pContext			= NULL;
 	bool			bAllScalarInput		= true;
 	ifstream		ifs;
-	wchar_t			wcBuffer[MAXSIZE_CHAR_STR+1];
+	wchar_t			wcToken[MAXSIZE_CHAR_STR];
+	wchar_t			*wcRScript			= NULL;
+	wchar_t			*wcOutputVar		= NULL;
 	HRESULT			hr					= S_OK;
 	const wchar_t	FUNC_NAME[]			= L"CRSupport_FO::ParseRScript";
 
 	try
 	{
-		// convert script name to wchar (for logging)
-		RFP_MBSTOWCS(wcBuffer, sRScript)
-
-		// locate script
+		// verify script name provided
 		if(strlen(sRScript)==0)
 		{
 			INIT_ERROR_MSG(L"Missing R script file name.")
 			throw E_FAIL;
 		}
-		else
+
+		// convert script and output var names to wchar (for logging)
+		size_t uiBufLen = strlen(sRScript) + 1;
+		wcRScript = new wchar_t[uiBufLen];
+		if(!wcRScript)
+			throw E_OUTOFMEMORY;
+		RFP_MBSTOWCS(wcRScript, uiBufLen, sRScript)
+		if(sOutputVar)
 		{
-			// check if script exists
-			struct stat fInfo;
-			if(stat(sRScript, &fInfo) != 0)
-			{
-				// script not found
-				INIT_ERROR_MSG2(L"%s: R script file '%s' not found.", wcBuffer)
-				throw E_FAIL;
-			}
+			uiBufLen = strlen(sOutputVar) + 1;
+			wcOutputVar = new wchar_t[uiBufLen];
+			if(!wcOutputVar)
+				throw E_OUTOFMEMORY;
+			RFP_MBSTOWCS(wcOutputVar, uiBufLen, sOutputVar)
+		}
+
+		// check if script exists
+		struct stat fInfo;
+		if(stat(sRScript, &fInfo) != 0)
+		{
+			// script not found
+			INIT_ERROR_MSG2(L"%s: R script file '%s' not found.", wcRScript)
+			throw E_FAIL;
 		}
 		
 		// script located...open it
 		ifs.open(sRScript);
 		if(!ifs.is_open())
 		{
-			INIT_ERROR_MSG2(L"%s: Error opening R script file '%s'.", wcBuffer)
+			INIT_ERROR_MSG2(L"%s: Error opening R script file '%s'.", wcRScript)
 			throw E_FAIL;
 		}
 
-		// read first line and beginning parsing
-		ifs.getline(&szBuffer[0], BUFLEN);
-		while(ifs.good())
+		// parse until end tag encountered or EOF
+		bool bDone = false;
+		bool bOutputsFound = false;
+		while(!bDone)
 		{
-			if(!IsRComment(szBuffer))
+			ifs.getline(&szBuffer[0], BUFLEN);
+			if(ifs.fail() && !ifs.eof())
 			{
-				// not a comment line...no need to parse...get next line and continue
-				ifs.getline(&szBuffer[0], BUFLEN);
-				continue;
+				// probably indicates buffer overflow...ignore remainder of line
+				ifs.clear();
+				ifs.ignore(INT_MAX, NL_CHAR);
 			}
+			else if(ifs.bad())
+			{
+				INIT_ERROR_MSG2(L"%s: Error reading R script file '%s'.", wcRScript)
+				throw E_FAIL;
+			}
+
+			if(ifs.eof())
+				// indicates last line of file...may or may not be empty...in either case, process current line, then exit loop
+				bDone = true;
+
+			if(!IsRComment(szBuffer))
+				// not a comment line...no need to parse...continue with next line
+				continue;
 
 			// comment line...initialize token search and convert initial token to lowercase
 			pToken = strtok_s(szBuffer, WHITESPACE_DELIMS, &pContext);
 			if(pToken)
 				ConvertToLower(pToken);
 			else
-			{
-				// no token following comment starter...no need to parse...get next line and continue
-				ifs.getline(&szBuffer[0], BUFLEN);
+				// no token following comment starter...no need to parse...continue with next line
 				continue;
-			}
 
 			// check variables block state
 			CVarInfo *pVarInfo = NULL;
@@ -1770,30 +1801,38 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 					// process variable definition
 					while(pToken)
 					{
-						// line is expected to define a variable...check if this is first token on this line
+						// line is expected to define a variable...check if this is first token (variable name) on this line
 						if(!pVarInfo)
 						{
-							// 'var info' structure doesn't exist yet...must be at first token...check for duplicates
+							// 'var info' structure doesn't exist yet...must be at first token...check length of variable name
+							if(strlen(pToken) > RFP_MAX_TOKEN_LENGTH)
+							{
+								INIT_ERROR_MSG2(L"%s: One of the defined RVAR variable names exceeds the maximum allowable length (%d).",
+									RFP_MAX_TOKEN_LENGTH)
+								throw E_FAIL;
+							}
+
+							// convert token to wchar (for logging)
+							RFP_MBSTOWCS(wcToken, MAXSIZE_CHAR_STR, pToken)
+
+							// check for duplicates
 							if(IsDupVar(pToken))
 							{
-								RFP_MBSTOWCS(wcBuffer, pToken)
-								INIT_ERROR_MSG2(L"%s: The variable name '%s' is defined multiple times.", wcBuffer)
+								INIT_ERROR_MSG2(L"%s: The variable name '%s' is defined multiple times.", wcToken)
 								throw E_FAIL;
 							}
 
 							// check for R reserved names
 							if(IsReservedForR(pToken))
 							{
-								RFP_MBSTOWCS(wcBuffer, pToken)
-								INIT_ERROR_MSG2(L"%s: The name '%s' is reserved and cannot be used as a variable name.", wcBuffer)
+								INIT_ERROR_MSG2(L"%s: The name '%s' is reserved and cannot be used as a variable name.", wcToken)
 								throw E_FAIL;
 							}
 
 							// check for invalid characters
 							if(HasBadChar(pToken))
 							{
-								RFP_MBSTOWCS(wcBuffer, pToken)
-								INIT_ERROR_MSG2(L"%s: The name '%s' contains an invalid character.", wcBuffer)
+								INIT_ERROR_MSG2(L"%s: The name '%s' contains an invalid character.", wcToken)
 								throw E_FAIL;
 							}
 
@@ -1806,7 +1845,18 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 						}
 						else
 						{
-							// name has been parsed...check for comment following variable definition
+							// name has been parsed...check token length
+							if(strlen(pToken) > RFP_MAX_TOKEN_LENGTH)
+							{
+								INIT_ERROR_MSG2(L"%s: One of the defined RVAR options exceeds the maximum allowable length (%d).",
+									RFP_MAX_TOKEN_LENGTH)
+								throw E_FAIL;
+							}
+
+							// convert token to wchar (for logging)
+							RFP_MBSTOWCS(wcToken, MAXSIZE_CHAR_STR, pToken)
+
+							// check for comment following variable definition
 							if(pToken[0]==START_CMT)
 								// found comment...no need to parse remainder of current line
 								break;
@@ -1838,8 +1888,7 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 								}
 								else
 								{
-									RFP_MBSTOWCS(wcBuffer, pToken)
-									INIT_ERROR_MSG2(L"%s: The token '%s' is an unsupported variable option.", wcBuffer)
+									INIT_ERROR_MSG2(L"%s: The token '%s' is an unsupported variable option.", wcToken)
 									throw E_FAIL;
 								}
 							}
@@ -1852,8 +1901,7 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 									pVarInfo->PutDataType(DssDataTypeVarChar);
 								else
 								{
-									RFP_MBSTOWCS(wcBuffer, pToken)
-									INIT_ERROR_MSG2(L"%s: The token '%s' is an unsupported variable option.", wcBuffer)
+									INIT_ERROR_MSG2(L"%s: The token '%s' is an unsupported variable option.", wcToken)
 									throw E_FAIL;
 								}
 							}
@@ -1883,8 +1931,7 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 								}
 								else
 								{
-									RFP_MBSTOWCS(wcBuffer, pToken)
-									INIT_ERROR_MSG2(L"%s: The token '%s' is an unsupported variable option.", wcBuffer)
+									INIT_ERROR_MSG2(L"%s: The token '%s' is an unsupported variable option.", wcToken)
 									throw E_FAIL;
 								}
 							}
@@ -1894,6 +1941,16 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 								// indicates a function parameter...fetch next token (should be one of the reserved
 								//	function parameter names)
 								pToken = strtok_s(NULL, WHITESPACE_DELIMS, &pContext);
+
+								if(strlen(pToken) > RFP_MAX_TOKEN_LENGTH)
+								{
+									INIT_ERROR_MSG2(L"%s: One of the defined RVAR parameter names exceeds the maximum allowable length (%d).",
+										RFP_MAX_TOKEN_LENGTH)
+									throw E_FAIL;
+								}
+
+								// convert token to wchar (for logging)
+								RFP_MBSTOWCS(wcToken, MAXSIZE_CHAR_STR, pToken)
 
 								// compare to list of R-FP parameter names
 								for(Int_32 i=0;i<RFP_USER_FUNCPARAM_CNT;i++)
@@ -1907,16 +1964,14 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 
 								if(pVarInfo->GetParamIndex() < 0)
 								{
-									RFP_MBSTOWCS(wcBuffer, pToken)
-									INIT_ERROR_MSG2(L"%s: '%s' is not a valid function parameter name.", wcBuffer)
+									INIT_ERROR_MSG2(L"%s: '%s' is not a valid function parameter name.", wcToken)
 									throw E_FAIL;
 								}
 
 								// check for duplicates
 								if(IsDupParam(pToken))
 								{
-									RFP_MBSTOWCS(wcBuffer, pToken)
-									INIT_ERROR_MSG2(L"%s: The function parameter name '%s' is defined multiple times.", wcBuffer)
+									INIT_ERROR_MSG2(L"%s: The function parameter name '%s' is defined multiple times.", wcToken)
 									throw E_FAIL;
 								}
 
@@ -1971,7 +2026,10 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 					}
 					else
 					{
-						// output...check data type
+						// output...set flag
+						bOutputsFound = true;
+						
+						// check data type
 						if(pVarInfo->GetDataType()==DssDataTypeUnknown)
 						{
 							// data type must be specified
@@ -2019,10 +2077,7 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 			if(eVarDefs==dsFound)
 				// variables block parsed...exit loop
 				break;
-
-			// not done yet...read next line
-			ifs.getline(&szBuffer[0], BUFLEN);
-		}  // while(ifs.good())
+		}  // while(!bDone)
 
 		if(eVarDefs==dsFound)
 		{
@@ -2034,7 +2089,14 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 			}
 			if(m_vOutputInfo.size()==0)
 			{
-				INIT_ERROR_MSG(L"At least one output is required.")
+				if(bOutputsFound)
+				{
+					INIT_ERROR_MSG2(L"%s: The output '%s' specified in the _OutputVar parameter is not defined.", wcOutputVar);
+				}
+				else
+				{
+					INIT_ERROR_MSG(L"At least one output is required.")
+				}
 				throw E_FAIL;
 			}
 
@@ -2113,6 +2175,8 @@ STDMETHODIMP CRSupport_FO::ParseRScript(
 
 	// cleanup
 	if(ifs.is_open()) ifs.close();
+	delete [] wcRScript;
+	delete [] wcOutputVar;
 
 	return hr;
 }

@@ -378,6 +378,8 @@ CRFPCommonNNGEN::CRFPCommonNNGEN() :
 
 	// initialize error message buffer to empty string
 	m_sErrMsg[0] = NULL_WCHAR;
+	m_ioBuffer.first = NULL;
+	m_ioBuffer.second = 0;
 }
 
 //-----------------------------------------------------------------------
@@ -407,6 +409,7 @@ CRFPCommonNNGEN::~CRFPCommonNNGEN()
 		delete [] m_szReposRScriptFile;
 		delete [] m_szErrLog;
 		delete [] m_szErrLogBkup;
+		delete [] m_ioBuffer.first;
 	}
 	catch(...)
 	{
@@ -542,7 +545,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 	Int_32 Index,
 	VARIANT *pValue)
 {
-	wchar_t			wcsVarName[MAXSIZE_CHAR_STR+1];
+	wchar_t			wcsVarName[MAXSIZE_CHAR_STR];
 	HRESULT			hr				= S_OK;
 	const wchar_t	FUNC_NAME[]		= L"CRFPCommonNNGEN::SetProperty";
 
@@ -633,14 +636,13 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 
 					if(pValue->vt == VT_BSTR)
 					{
-						Int_32 lSrcLen = SysStringLen(pValue->bstrVal);
-						if(lSrcLen > 0)
+						size_t uiSrcLen = SysStringLen(pValue->bstrVal);
+						if(uiSrcLen > 0)
 						{
 							// convert BSTR to char
-							m_sWorkingDir = new char [lSrcLen + 1];
+							m_sWorkingDir = new char [RFP_BUFLEN(uiSrcLen)];
 							if(!m_sWorkingDir) return E_OUTOFMEMORY;
-							size_t returnLen;
-							wcstombs_s(&returnLen, m_sWorkingDir, lSrcLen+1, pValue->bstrVal, lSrcLen);
+							RFP_WCSTOMBS(m_sWorkingDir, RFP_BUFLEN(uiSrcLen), pValue->bstrVal)
 
 							// verify that specified folder exists
 							struct stat fInfo;
@@ -670,14 +672,13 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 
 					if(pValue->vt == VT_BSTR)
 					{
-						Int_32 lSrcLen = SysStringLen(pValue->bstrVal);
-						if(lSrcLen > 0)
+						size_t uiSrcLen = SysStringLen(pValue->bstrVal);
+						if(uiSrcLen > 0)
 						{
 							// convert BSTR to char
-							m_sOutputVar = new char [lSrcLen + 1];
+							m_sOutputVar = new char [RFP_BUFLEN(uiSrcLen)];
 							if(!m_sOutputVar) return E_OUTOFMEMORY;
-							size_t returnLen;
-							wcstombs_s(&returnLen, m_sOutputVar, lSrcLen+1, pValue->bstrVal, lSrcLen);
+							RFP_WCSTOMBS(m_sOutputVar, RFP_BUFLEN(uiSrcLen), pValue->bstrVal)
 						}
 						else
 							// _OutputVar not set...set to NULL
@@ -728,11 +729,10 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 
 					if(pValue->vt == VT_BSTR)
 					{
-						Int_32 lSrcLen = SysStringLen(pValue->bstrVal);
-						m_sRScriptFile = new char [lSrcLen + 1];
+						size_t uiSrcLen = SysStringLen(pValue->bstrVal);
+						m_sRScriptFile = new char [RFP_BUFLEN(uiSrcLen)];
 						if(!m_sRScriptFile) return E_OUTOFMEMORY;
-						size_t returnLen;
-						wcstombs_s(&returnLen, m_sRScriptFile, lSrcLen+1, pValue->bstrVal, lSrcLen);
+						RFP_WCSTOMBS(m_sRScriptFile, RFP_BUFLEN(uiSrcLen), pValue->bstrVal)
 
 						// set up CRSupport_FO object (this will initialize the R environment)
 						hr = AllocRSuppFO();
@@ -751,7 +751,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 								CVarInfo *pVI = m_pRSuppFO->GetParam(i+1);
 								if(pVI)
 								{
-									RFP_MBSTOWCS(wcsVarName, pVI->GetVarName())
+									RFP_MBSTOWCS(wcsVarName, MAXSIZE_CHAR_STR, pVI->GetVarName())
 									hr = m_pRSuppFO->GetRSupp()->SetRVarV(pVI->GetVarName(), &m_vPropValues[i], NULL);
 									CHECK_SETRVAR_HR(wcsVarName)
 								}
@@ -780,14 +780,13 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 
 					if(pValue->vt == VT_BSTR)
 					{
-						Int_32 lSrcLen = SysStringLen(pValue->bstrVal);
-						if(lSrcLen > 0)
+						size_t uiSrcLen = SysStringLen(pValue->bstrVal);
+						if(uiSrcLen > 0)
 						{
 							// convert BSTR to char
-							m_sInputNames = new char [lSrcLen + 1];
+							m_sInputNames = new char [RFP_BUFLEN(uiSrcLen)];
 							if(!m_sInputNames) return E_OUTOFMEMORY;
-							size_t returnLen;
-							wcstombs_s(&returnLen, m_sInputNames, lSrcLen+1, pValue->bstrVal, lSrcLen);
+							RFP_WCSTOMBS(m_sInputNames, RFP_BUFLEN(uiSrcLen), pValue->bstrVal)
 						}
 						else
 							// _InputNames not set...set to NULL
@@ -1559,9 +1558,7 @@ STDMETHODIMP CRFPCommonNNGEN::ConvertFromVariant(
 		else if (pVar->vt == VT_BSTR)
 		{
 			int srcLen = SysStringLen(pVar->bstrVal);
-			size_t returnLen;
-			wcstombs_s(&returnLen, reinterpret_cast<char *>(pData), MAXSIZE_CHAR_STR+1,
-				pVar->bstrVal, srcLen);
+			RFP_WCSTOMBS(reinterpret_cast<char *>(pData), MAXSIZE_CHAR_STR+1, pVar->bstrVal)
 		}
 		else
 			return E_FAIL;
@@ -1571,9 +1568,7 @@ STDMETHODIMP CRFPCommonNNGEN::ConvertFromVariant(
 			if (pVar->vt != VT_BSTR)
 				return E_FAIL;
 			int srcLen = SysStringLen(pVar->bstrVal);
-			size_t returnLen;
-			wcstombs_s(&returnLen, reinterpret_cast<char *>(pData), MAXSIZE_CHAR_STR+1,
-				pVar->bstrVal, srcLen);
+			RFP_WCSTOMBS(reinterpret_cast<char *>(pData), MAXSIZE_CHAR_STR+1, pVar->bstrVal)
 			break;
 		}
 	default:
@@ -1810,7 +1805,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 	Int_32 lPIndex = 0;
 	Int_32 bound1;
 	HRESULT hr = S_OK;
-	wchar_t wcsVarName[MAXSIZE_CHAR_STR+1];
+	wchar_t wcsVarName[MAXSIZE_CHAR_STR];
 	const wchar_t FUNC_NAME[] = L"CRFPCommonNNGEN::SetInputParam";
 
 	if (pData == NULL)
@@ -1898,6 +1893,15 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 		}
 		//else...not a safe array...must be a scalar input...size will be checked below
 
+		if(!m_ioBuffer.first)
+		{
+			// allocate buffer
+			m_ioBuffer.first = new char[RFP_BUFLEN(RFP_INITIAL_CHAR_LIMIT)];
+			if(!m_ioBuffer.first)
+				throw E_OUTOFMEMORY;
+			m_ioBuffer.second = RFP_INITIAL_CHAR_LIMIT;
+		}
+
 		switch (m_lFunctionIndex)
 		{
 		case 1:  // RScriptSimple
@@ -1910,7 +1914,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 				lPIndex = (nParamIndex > INCNT) ? (((nParamIndex-(INCNT+1)) % REPCNT) + (NONREPCNT+1)) : nParamIndex;
 				CVarInfo *pVI = m_pRSuppFO->GetInput(lPIndex-1);
 				CRSupport *pRSupp = m_pRSuppFO->GetRSupp();
-				RFP_MBSTOWCS(wcsVarName, pVI->GetVarName())
+				RFP_MBSTOWCS(wcsVarName, MAXSIZE_CHAR_STR, pVI->GetVarName())
 
 				// check for potential of pairing-up problem
 				if(bSafeArray && (bound1 != nSize - 1) && (m_pRSuppFO->GetInputCnt() > 1))
@@ -1949,7 +1953,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 					// current input not repeated
 					if(pVI->GetParamType()==DssParameterVector)
 					{
-						hr = pRSupp->SetRVarSA(pVI->GetVarName(), nSize, pVI->GetDataType(), pData, pFlag);
+						hr = pRSupp->SetRVarSA(pVI->GetVarName(), nSize, pVI->GetDataType(), &m_ioBuffer, pData, pFlag);
 						CHECK_SETRVAR_HR(wcsVarName);
 					}
 					else // scalar input
@@ -1967,8 +1971,8 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 						return E_FAIL;
 					Int_32 lRepIndex = (nParamIndex - lPIndex) / REPCNT;  // provides access to the proper repeated parameter
 					Int_32 lColCnt = ((m_lInputCnt - nParamIndex) / REPCNT) + 1;
-					hr = pRSupp->SetRVarSA_mx(pVI->GetVarName(), lRepIndex, nSize, lColCnt, pVI->GetDataType(), pData, pFlag,
-						bSafeArray, m_sErrMsg);
+					hr = pRSupp->SetRVarSA_mx(pVI->GetVarName(), lRepIndex, nSize, lColCnt, pVI->GetDataType(), &m_ioBuffer,
+						pData, pFlag, bSafeArray, m_sErrMsg);
 					CHECK_SETRVAR_HR(wcsVarName);
 				}
 
@@ -2048,7 +2052,7 @@ STDMETHODIMP CRFPCommonNNGEN::GetInputParamType(
 		case 5:  // RScriptAgg
 			{
 				// increment input count
-				m_lInputCnt ++;
+				m_lInputCnt++;
 
 				// check parse status
 				if(m_bParseOK)

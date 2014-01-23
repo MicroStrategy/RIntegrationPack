@@ -44,6 +44,7 @@ extern CComModule _Module;
 #define Int_32		int
 enum EnumRFPType { rfpUnknown, rfpSimple, rfpRelative, rfpAgg };
 typedef std::vector<char *> STR_VECTOR;
+typedef std::pair<char *, size_t> IOBUFFER_PAIR;
 
 // constants
 const Int_32 ERRMSG_BUFSIZE = 256;
@@ -51,7 +52,7 @@ const Int_32 KEY_BUFFER_SIZE = 1024;
 const Int_32 RFP_USER_FUNCPARAM_CNT = 27;
 const Int_32 RFP_RESV_FOR_R_CNT = 20;
 const Int_32 RFP_DATETIME_SIZE = 50;
-const Int_32 RFP_ERRLOG_LIMIT = 100000;  // 1MB
+const Int_32 RFP_ERRLOG_LIMIT = 0x100000;  // 1MB
 
 // external decls (see StdAfx.cpp)
 extern const char START_CMT;
@@ -89,6 +90,8 @@ extern const char *RFP_PATH_DELIM;
 extern const char *RFP_ERRLOG;
 extern const char *RFP_ERRLOG_BKUP;
 extern const char *RFP_RSCRIPTS;
+extern const size_t RFP_MAX_TOKEN_LENGTH;
+extern const size_t RFP_INITIAL_CHAR_LIMIT;
 
 //=======================================================================
 // MicroStrategy libraries
@@ -103,6 +106,7 @@ extern const char *RFP_RSCRIPTS;
 // non-numeric parameter/property support
 #define MAXSIZE_DATE_STR 20
 #define MAXSIZE_CHAR_STR 256
+#define RFP_BUFLEN(cnt) 2*(cnt+1)
 typedef char DATE_STR[MAXSIZE_DATE_STR+1];
 typedef char CHSTR[MAXSIZE_CHAR_STR+1];
 EXTERN_C const IID IID_IDSSTime;
@@ -115,9 +119,13 @@ EXTERN_C const IID IID_IDSSTime;
 	strcat_s(dest, destLen, src);
 #define RFP_WCSCPY(dest, destLen, src)												\
 	wcscpy_s(dest, destLen, src);
-#define RFP_MBSTOWCS(dest, src)														\
+#define RFP_WCSTOMBS(dest, destLen, src)											\
 {																					\
-	size_t destLen = strlen(src) + 1;  /* size in words */							\
+	size_t returnLen = 0;															\
+	wcstombs_s(&returnLen, dest, destLen, src, _TRUNCATE);							\
+}
+#define RFP_MBSTOWCS(dest, destLen, src)											\
+{																					\
 	size_t returnLen = 0;															\
 	mbstowcs_s(&returnLen, dest, destLen, src, _TRUNCATE);							\
 }
