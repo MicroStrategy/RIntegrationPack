@@ -372,14 +372,24 @@ CRFPCommonNNGEN::CRFPCommonNNGEN() :
 	m_szErrLog(NULL),
 	m_szErrLogBkup(NULL)
 {
+	const wchar_t	FUNC_NAME[]		= L"CRFPCommonNNGEN::CRFPCommonNNGEN";
+
 #ifdef _FPNNGEN_FTM
 	m_pUnkMarshaler = NULL;
 #endif
 
 	// initialize error message buffer to empty string
 	m_sErrMsg[0] = NULL_WCHAR;
-	m_ioBuffer.first = NULL;
+
+	// allocate buffer
 	m_ioBuffer.second = 0;
+	m_ioBuffer.first = new char[RFP_BUFLEN(RFP_INITIAL_STR_LENGTH)];
+	if(m_ioBuffer.first)
+		m_ioBuffer.second = RFP_INITIAL_STR_LENGTH;
+	else
+	{
+		INIT_ERROR_MSG(L"Allocation error during CRFPCommonNNGEN construction.")
+	}
 }
 
 //-----------------------------------------------------------------------
@@ -552,6 +562,10 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 	if (pValue == NULL)
 		return E_POINTER;
 
+	if(!m_ioBuffer.first)
+		// initial buffer allocation in constructor failed
+		return E_FAIL;
+
 	if((Index > 32) && !m_bParseOK)
 		// no need to continue processing properties
 		return E_FAIL;
@@ -643,15 +657,6 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 							m_sWorkingDir = new char [RFP_BUFLEN(uiSrcLen)];
 							if(!m_sWorkingDir) return E_OUTOFMEMORY;
 							RFP_WCSTOMBS(m_sWorkingDir, RFP_BUFLEN(uiSrcLen), pValue->bstrVal)
-
-							// verify that specified folder exists
-							struct stat fInfo;
-							if(stat(m_sWorkingDir, &fInfo)!=0)
-							{
-								// folder does not exist...ignore it
-								delete [] m_sWorkingDir;
-								m_sWorkingDir = NULL;
-							}
 						}
 						else
 							// _WorkingDir not set...set to NULL
@@ -752,7 +757,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 								if(pVI)
 								{
 									RFP_MBSTOWCS(wcsVarName, MAXSIZE_CHAR_STR, pVI->GetVarName())
-									hr = m_pRSuppFO->GetRSupp()->SetRVarV(pVI->GetVarName(), &m_vPropValues[i], NULL);
+									hr = m_pRSuppFO->GetRSupp()->SetRVarV(pVI->GetVarName(), &m_ioBuffer, &m_vPropValues[i], NULL);
 									CHECK_SETRVAR_HR(wcsVarName)
 								}
 								//else...parameter not defined by R script...skip it
@@ -802,7 +807,8 @@ STDMETHODIMP CRFPCommonNNGEN::SetProperty(
 				}
 			default:
 				{
-					return E_FAIL;  // invalid property index
+					// ignore unexpected properties
+					break;
 				}
 			}
 
@@ -1820,6 +1826,10 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 	if ((nParamIndex < 1) || (nParamIndex > m_lInputCnt))
 		return E_FAIL;
 
+	if(!m_ioBuffer.first)
+		// initial buffer allocation in constructor failed
+		return E_FAIL;
+
 	if(!m_bParseOK)
 		// parse failed...return good status so that GetOutput() will be called, which will return error
 		return S_OK;
@@ -1893,15 +1903,6 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 		}
 		//else...not a safe array...must be a scalar input...size will be checked below
 
-		if(!m_ioBuffer.first)
-		{
-			// allocate buffer
-			m_ioBuffer.first = new char[RFP_BUFLEN(RFP_INITIAL_CHAR_LIMIT)];
-			if(!m_ioBuffer.first)
-				throw E_OUTOFMEMORY;
-			m_ioBuffer.second = RFP_INITIAL_CHAR_LIMIT;
-		}
-
 		switch (m_lFunctionIndex)
 		{
 		case 1:  // RScriptSimple
@@ -1960,7 +1961,7 @@ STDMETHODIMP CRFPCommonNNGEN::SetInputParam(
 					{
 						if (nSize != 1)
 							return E_FAIL;
-						hr = pRSupp->SetRVarV(pVI->GetVarName(), pData, pFlag);
+						hr = pRSupp->SetRVarV(pVI->GetVarName(), &m_ioBuffer, pData, pFlag);
 						CHECK_SETRVAR_HR(wcsVarName);
 					}
 				}

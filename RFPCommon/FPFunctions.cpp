@@ -314,7 +314,8 @@ variables for later use.  The following locations may be used for logging
 
 	* working directory (only if specified by _WorkingDir parameter)
 	* script location
-		- as indicated by _RScriptFile (only if path provided)
+		- as indicated by the _RScriptFile parameter (only if path provided)
+		- as indicated by the _WorkingDir parameter
 		- as indicated by RScriptsFolder key value
 		- default RScripts folder (<RIP install dir>\RScripts)
 	* RIP installation folder
@@ -360,6 +361,19 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 			if(lDirLen > 1)
 				// not root...delete trailing slash
 				szRScriptPath[strlen(szRScriptPath) - 1] = NULL_CHAR;
+		}
+
+		// validate working directory
+		wchar_t wcErrMsg[2*_MAX_PATH];
+		wcErrMsg[0] = NULL_WCHAR;
+		if(m_sWorkingDir && !FolderExists(m_sWorkingDir))
+		{
+			// folder does not exist...init error message (log below, after logging is set up)
+			swprintf_s(wcErrMsg, 2*_MAX_PATH, L"The folder '%S' specified by the _WorkingDir parameter does not exist, and will be ignored.", m_sWorkingDir);
+			
+			// release it, so that it won't be passed to script
+			delete [] m_sWorkingDir;
+			m_sWorkingDir = NULL;
 		}
 
 		// validate repository folder
@@ -425,12 +439,39 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 			}
 		}
 
+		if(wcslen(wcErrMsg) > 0)
+			// error message found...log it
+			LogErrMsg(wcErrMsg);
+
 		if(strlen(szRScriptPath)==0)
 		{
-			// _RScriptFile did not include path...check for repository
-			if(pRepository)
+			// _RScriptFile did not include path...check for working directory
+			if(m_sWorkingDir)
 			{
-				// valid repository found...allocate buffer and construct full name
+				// script in this location will override repository...check for one...allocate buffer and construct full name
+				Int_32 lLength = strlen(m_sWorkingDir) + strlen(m_sRScriptFile) + 2;
+				m_szReposRScriptFile = new char [lLength];
+				if(!m_szReposRScriptFile)
+				{
+					INIT_ERROR_MSG(L"Allocation error when processing working directory location.")
+					throw E_OUTOFMEMORY;
+				}
+				RFP_STRCPY(m_szReposRScriptFile, lLength, m_sWorkingDir)
+				RFP_STRCAT(m_szReposRScriptFile, lLength, RFP_PATH_DELIM)
+				RFP_STRCAT(m_szReposRScriptFile, lLength, m_sRScriptFile)
+
+				// check if script exists at this location
+				if(!FolderExists(m_szReposRScriptFile))
+				{
+					// script not found...release buffer, so that repository will be checked
+					delete [] m_szReposRScriptFile;
+					m_szReposRScriptFile = NULL;
+				}
+			}
+
+			if(!m_szReposRScriptFile && pRepository)
+			{
+				// script not in working directory, and valid repository found...allocate buffer and construct full name
 				Int_32 lLength = strlen(pRepository) + strlen(m_sRScriptFile) + 2;
 				m_szReposRScriptFile = new char [lLength];
 				if(!m_szReposRScriptFile)
@@ -442,13 +483,14 @@ STDMETHODIMP CRFPCommonNNGEN::InitFileNames()
 				RFP_STRCAT(m_szReposRScriptFile, lLength, RFP_PATH_DELIM)
 				RFP_STRCAT(m_szReposRScriptFile, lLength, m_sRScriptFile)
 			}
-			else
+			else if(!m_szReposRScriptFile)
 			{
 				// no repository, and _RScriptFile did not include path...cannot find script
 				INIT_ERROR_MSG(L"Valid script repository must be specified if using relative R script filename.")
 				throw E_FAIL;
 			}
 		}
+		//else...path provided by _RScriptFile...no need to check working directory or script repository
 	}
 	catch(HRESULT catchHR)
 	{
@@ -474,8 +516,6 @@ folder was found by InitFileNames().
 void CRFPCommonNNGEN::LogErrMsg(
 	wchar_t *pErrMsg)
 {
-	HRESULT		hr	= S_OK;
-
 	try
 	{
 		Int_32 lMsgLen = wcslen(pErrMsg);
@@ -719,7 +759,7 @@ STDMETHODIMP CRFPCommonNNGEN::ExRScript(
 
 		// initialize the MSTR error message buffer and execution flag
 		CComVariant vBuffer = L"";
-		pRSupp->SetRVarV(RFP_ERRMSG, &vBuffer, NULL);
+		pRSupp->SetRVarV(RFP_ERRMSG, &m_ioBuffer, &vBuffer, NULL);
 		double dblFlag = 1;
 		pRSupp->SetRVar(RFP_EXFLAG, 1, &dblFlag, NULL);
 
