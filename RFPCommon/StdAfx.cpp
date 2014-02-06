@@ -1,5 +1,5 @@
 //=======================================================================
-//		Copyright 2013 MicroStrategy, Inc.
+//		Copyright 2013-2014 MicroStrategy, Inc.
 //
 //		Licensed under the Apache License, Version 2.0 (the "License");
 //		you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ const char NULL_CHAR = '\0';
 const wchar_t NULL_WCHAR = L'\0';
 const char OPENBRACKET_CHAR = '[';
 const char CLOSEBRACKET_CHAR = ']';
+const char NL_CHAR = '\n';
 const char *NEWLINE = "\n";
 const char *WHITESPACE_DELIMS = " \t\r\n";
 const char *MSTR_BEGIN = "microstrategy_begin";
@@ -105,7 +106,3 @@ const char *RFP_ERRLOG_BKUP = "RScriptErrorsBkup.log";
 
 // default script repository
 const char *RFP_RSCRIPTS = "RScripts";
-
-// miscellaneous consts
-const size_t RFP_MAX_TOKEN_LENGTH = 250;
-const size_t RFP_INITIAL_CHAR_LIMIT = 0x1000;

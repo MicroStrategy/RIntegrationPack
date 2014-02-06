@@ -1,5 +1,5 @@
 //=======================================================================
-//		Copyright 2013 MicroStrategy, Inc.
+//		Copyright 2013-2014 MicroStrategy, Inc.
 //
 //		Licensed under the Apache License, Version 2.0 (the "License");
 //		you may not use this file except in compliance with the License.
@@ -53,6 +53,9 @@ const Int_32 RFP_USER_FUNCPARAM_CNT = 27;
 const Int_32 RFP_RESV_FOR_R_CNT = 20;
 const Int_32 RFP_DATETIME_SIZE = 50;
 const Int_32 RFP_ERRLOG_LIMIT = 0x100000;  // 1MB
+const size_t RFP_MAX_TOKEN_LENGTH = 250;
+const size_t RFP_INITIAL_STR_LENGTH = 0x1000;  // 4KB
+const size_t RFP_MAX_STR_LENGTH = 0x10000;  // 64KB
 
 // external decls (see StdAfx.cpp)
 extern const char START_CMT;
@@ -64,6 +67,7 @@ extern const char NULL_CHAR;
 extern const wchar_t NULL_WCHAR;
 extern const char OPENBRACKET_CHAR;
 extern const char CLOSEBRACKET_CHAR;
+extern const char NL_CHAR;
 extern const char *NEWLINE;
 extern const char *WHITESPACE_DELIMS;
 extern const char *MSTR_BEGIN;
@@ -90,8 +94,6 @@ extern const char *RFP_PATH_DELIM;
 extern const char *RFP_ERRLOG;
 extern const char *RFP_ERRLOG_BKUP;
 extern const char *RFP_RSCRIPTS;
-extern const size_t RFP_MAX_TOKEN_LENGTH;
-extern const size_t RFP_INITIAL_CHAR_LIMIT;
 
 //=======================================================================
 // MicroStrategy libraries
@@ -213,6 +215,39 @@ if(FAILED(hr))																		\
 		(dt==DssDataTypeUTF8Char) ? L"utf8Char" :				/*  33*/	\
 		(dt==DssDataTypeInt64) ? L"int64" :						/*  34*/	\
 		L"unsupported"														\
+	)
+
+// macro which converts R data types to appropriate string (used for logging)
+#define RFP_GET_RDT_STR(dt)													\
+	(																		\
+		(dt==NILSXP) ? L"NILSXP" :								/*   0*/	\
+		(dt==SYMSXP) ? L"SYMSXP" :								/*   1*/	\
+		(dt==LISTSXP) ? L"LISTSXP" :							/*   2*/	\
+		(dt==CLOSXP) ? L"CLOSXP" :								/*   3*/	\
+		(dt==ENVSXP) ? L"ENVSXP" :								/*   4*/	\
+		(dt==PROMSXP) ? L"PROMSXP" :							/*   5*/	\
+		(dt==LANGSXP) ? L"LANGSXP" :							/*   6*/	\
+		(dt==SPECIALSXP) ? L"SPECIALSXP" :						/*   7*/	\
+		(dt==BUILTINSXP) ? L"BUILTINSXP" :						/*   8*/	\
+		(dt==CHARSXP) ? L"CHARSXP" :							/*   9*/	\
+		(dt==LGLSXP) ? L"LGLSXP" :								/*  10*/	\
+		(dt==INTSXP) ? L"INTSXP" :								/*  13*/	\
+		(dt==REALSXP) ? L"REALSXP" :							/*  14*/	\
+		(dt==CPLXSXP) ? L"CPLXSXP" :							/*  15*/	\
+		(dt==STRSXP) ? L"STRSXP" :								/*  16*/	\
+		(dt==DOTSXP) ? L"DOTSXP" :								/*  17*/	\
+		(dt==ANYSXP) ? L"ANYSXP" :								/*  18*/	\
+		(dt==VECSXP) ? L"VECSXP" :								/*  19*/	\
+		(dt==EXPRSXP) ? L"EXPRSXP" :							/*  20*/	\
+		(dt==BCODESXP) ? L"BCODESXP" :							/*  21*/	\
+		(dt==EXTPTRSXP) ? L"EXTPTRSXP" :						/*  22*/	\
+		(dt==WEAKREFSXP) ? L"WEAKREFSXP" :						/*  23*/	\
+		(dt==RAWSXP) ? L"RAWSXP" :								/*  24*/	\
+		(dt==S4SXP) ? L"S4SXP" :								/*  25*/	\
+		(dt==NEWSXP) ? L"NEWSXP" :								/*  30*/	\
+		(dt==FREESXP) ? L"FREESXP" :							/*  31*/	\
+		(dt==FUNSXP) ? L"FUNSXP" :								/*  99*/	\
+		L"[undefined]"														\
 	)
 
 //{{AFX_INSERT_LOCATION}}
