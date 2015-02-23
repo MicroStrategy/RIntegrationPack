@@ -1,0 +1,81 @@
+XCOMM    Please fill in the project name, Author and creation time.
+XCOMM    PROJECTNAME:	RIPSupport
+XCOMM    AUTHOR : <your name> : <your name>@microstrategy.com
+XCOMM    CREATION time:	 Fri Aug 8 01:00:00 2014
+XCOMM    Copyright (C) MicroStrategy, Inc. 2014
+
+
+XCOMM set the VOB to be VOB name, CONS to be the name for the constellationa
+XCOMM  and PROJ to be the name of the current project
+PROJ=RIPSupport
+
+XCOMM set BINNAME to be the basename of your binary, do not include suffix.
+BINNAME=RIPSupport
+
+CPPSRCS = \
+	./StdAfx.cpp \
+	./RIPSupport.cpp \
+
+CPPSRCS += \
+
+XCOMM Append the Macro to the variable DEFINES with the format -Dmydefine.
+DEFINES = -D_AFXDLL -D_MBCS -D_WINDLL
+DEFINES +=
+
+INCLUDES =
+INCLUDES += \
+	../../../3rdParty/R/$(OS_NAME)/include \
+
+XCOMM define the Libraries used for linking. You should use as much as possible the project names with the LINKDEPS constructs.
+XCOMM For those libraries that do not have a project name, you should use unix shortcut -lmylibrary for lib mylibrary with LOCLIBS
+XCOMM so do not specify the location for the library.
+LINKDEPS += \
+
+LOCLIBS += \
+
+LINKDEPS += \
+
+LOCLIBS += \
+
+XXCOM System libraries
+LINKDEPS += \
+
+#if defined(Win32Architecture)
+SYS_LIBRARIES =
+#endif
+
+#if defined(SunArchitecture)
+SYS_LIBRARIES = -lm
+#endif
+
+#if defined(HPIPFArchitecture)
+SYS_LIBRARIES = -lm
+#endif
+
+#if defined(LinuxArchitecture)
+SYS_LIBRARIES = -lm
+#endif
+
+XCOMM Resource compilation
+#if defined(Win32Architecture)
+RCSRCS = \
+
+
+RCINCLUDES =
+
+#endif
+
+XCOMM Definition file
+#if defined(Win32Architecture)
+DEFFILE  \
+
+#endif
+
+PreHeaderPath=
+PreHeaderCompile()
+
+NOPCH= \
+
+
+BINTYPE=DLL
+SharedLibraryTarget()
