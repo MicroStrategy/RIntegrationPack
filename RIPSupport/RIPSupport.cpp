@@ -247,8 +247,9 @@ HRESULT CRSupport::InitR()
 
 			// set session to 'not interactive'
 			*m_R_Interactive_ptr = FALSE;
-			
-			// execute setInternet2(TRUE) command (required for URLs to work on Windows)
+
+			// yzhang, US53653, 2016-06-14, remove the call to setInternet2(TRUE) command
+/*			// execute setInternet2(TRUE) command (required for URLs to work on Windows)
 			SEXP eSetInt2;
 			int lErrorCode;
 			m_Rf_protect_ptr(eSetInt2=m_lang2_ptr(m_install_ptr(RCMD_SETINTERNET2), m_mkString_ptr(RFP_TRUE)));
@@ -258,7 +259,7 @@ HRESULT CRSupport::InitR()
 			{
 				INIT_MSG(L"Initialization of R environment failed")
 				return E_FAIL;
-			}
+			}*/
 
 			// success
 			return S_OK;
@@ -497,7 +498,7 @@ HRESULT CRSupport::ReadScript(
 	Int_32 *pLineCnt,
 	wchar_t *pErrMsg)
 {
-	SEXP			eUrl, eRdLns, eErrMsg, RErrMsg;
+	SEXP			/*eUrl,*/ eRdLns, eErrMsg, RErrMsg;
 	int				lErrorCode;
 	Int_32			lProtectCnt		= 0;
 	wchar_t			wcScript[MAXSIZE_CHAR_STR];
@@ -527,10 +528,20 @@ HRESULT CRSupport::ReadScript(
 		}
 		else
 		{
+			// yzhang, US53653, 2016-06-14, disable URL retrieval of R Script
+			
+			#ifdef WIN32
+				INIT_ERROR_MSG_REF(L"%s: Retrieval of R scripts from the metric expression cannot be a URL; please consider adding such script to an administrator approved location.")
+			#else
+				INIT_ERROR_MSG_REF(L"Retrieval of R scripts from the metric expression cannot be a URL; please consider adding such script to an administrator approved location.")
+			#endif
+			
+			throw E_FAIL;
+
 			// script is a URL...generate the following expression - readLines(url("<script URL>"))
-			m_Rf_protect_ptr(eUrl=m_lang2_ptr(m_install_ptr(RCMD_URL), m_mkString_ptr(sRScript)));
+			/*m_Rf_protect_ptr(eUrl=m_lang2_ptr(m_install_ptr(RCMD_URL), m_mkString_ptr(sRScript)));
 			m_Rf_protect_ptr(eRdLns=m_lang2_ptr(m_install_ptr(RCMD_READLINES), eUrl));
-			lProtectCnt+=2;
+			lProtectCnt+=2;*/
 		}
 
 		// evaluate the readLines() expression
@@ -576,11 +587,11 @@ HRESULT CRSupport::ReadScript(
 #ifdef WIN32
 			if(bIsURL)
 			{
-				INIT_ERROR_MSG_REF(L"%s: The expression readLines(url(%s)) failed evaluation due to (%s).  Please check _RScriptFile parameter setting.", wcScript, wcRErrMsg)
+				INIT_ERROR_MSG_REF(L"%s: The expression readLines(url(%s)) failed evaluation.  Please check _RScriptFile parameter setting.", wcScript)
 			}
 			else
 			{
-				INIT_ERROR_MSG_REF(L"%s: The expression readLines(%s) failed evaluation due to (%s).  Please check _RScriptFile parameter setting.", wcScript, wcRErrMsg)
+				INIT_ERROR_MSG_REF(L"%s: The expression readLines(%s) failed evaluation.  Please check _RScriptFile parameter setting.", wcScript)
 			}
 #else
 			if(wcslen(pErrMsg)==0)
@@ -590,9 +601,7 @@ HRESULT CRSupport::ReadScript(
 					wcscpy(pErrMsg, FUNC_NAME);
 					wcscat(pErrMsg, L": The expression readLines(url(");
 					wcsncat(pErrMsg, wcScript,100);
-					wcscat(pErrMsg, L")) due to (");
-					wcsncat(pErrMsg, wcRErrMsg,100);
-					wcscat(pErrMsg,L") failed evaluation.  Please check _RScriptFile parameter setting.");
+					wcscat(pErrMsg,L")) failed evaluation.  Please check _RScriptFile parameter setting.");
 
 				}
 				else
@@ -600,8 +609,6 @@ HRESULT CRSupport::ReadScript(
 					wcscpy(pErrMsg, FUNC_NAME);
 					wcscat(pErrMsg, L": The expression readLines(");
 					wcsncat(pErrMsg, wcScript,100);
-					wcscat(pErrMsg, L")) due to (");
-					wcsncat(pErrMsg, wcRErrMsg,100);
 					wcscat(pErrMsg,L") failed evaluation.  Please check _RScriptFile parameter setting.");
 
 				}
