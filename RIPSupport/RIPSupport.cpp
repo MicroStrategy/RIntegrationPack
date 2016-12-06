@@ -878,13 +878,8 @@ HRESULT CRSupport::SetRVarV(
 				{
 					// convert variant to CHSTR
 					wchar_t *pSource = pVarValue->bstrVal;
-					size_t uiSrcLen = wcslen(pSource);
-					size_t lDestBufLen = RFP_BUFLEN(uiSrcLen);// add the terminating null
-					pDestBuffer = new char [lDestBufLen];
-					if(!pDestBuffer)
-						throw E_OUTOFMEMORY;
-					RFP_WCSTOMBS(pDestBuffer, lDestBufLen, pSource)
-
+					//DE43238  widechar to utf8 conversion
+					pDestBuffer = RBase::WideCharToUTF8(pSource, 0, m_sErrMsg);
 					// initialize value with input data
 					m_SET_STRING_ELT_ptr(pRVector, 0, m_mkChar_ptr(pDestBuffer));
 				}
@@ -1006,13 +1001,8 @@ HRESULT CRSupport::SetRVarSA(
 					{
 						// access element and convert to CHSTR
 						wchar_t *pSource = pVarValues[i].bstrVal;
-						size_t uiSrcLen = wcslen(pSource);
-						size_t lDestBufLen = RFP_BUFLEN(uiSrcLen);// add the terminating null
-						pDestBuffer = new char [lDestBufLen];
-						if(!pDestBuffer)
-							throw E_OUTOFMEMORY;
-						RFP_WCSTOMBS(pDestBuffer, lDestBufLen, pSource)
-
+						//DE43238  widechar to utf8 conversion
+						pDestBuffer = RBase::WideCharToUTF8(pSource, 0, m_sErrMsg);
 						// initialize value with input data
 						m_SET_STRING_ELT_ptr(pRVector, i, m_mkChar_ptr(pDestBuffer));
 					}
@@ -1202,13 +1192,8 @@ HRESULT CRSupport::SetRVarSA_mx(
 					{
 						// access element and convert to CHSTR
 						wchar_t *pSource = pVarValues[i].bstrVal;
-						size_t uiSrcLen = wcslen(pSource);
-						size_t lDestBufLen = RFP_BUFLEN(uiSrcLen);// add the terminating null
-						pDestBuffer = new char [lDestBufLen];
-						if(!pDestBuffer)
-							throw E_OUTOFMEMORY;
-						RFP_WCSTOMBS(pDestBuffer, lDestBufLen, pSource)
-
+						//DE43238  widechar to utf8 conversion
+						pDestBuffer = RBase::WideCharToUTF8(pSource, 0, m_sErrMsg);
 						// initialize value with input data
 						m_SET_STRING_ELT_ptr(pRMatrix, j, m_mkChar_ptr(pDestBuffer));
 					}
@@ -2869,4 +2854,111 @@ extern "C"
 	{
 		delete (CRSupport_FO *)pRSuppFO;
 	}
+}
+//DE43238 provide support for widechar to utf8 conversion
+
+bool RBase::IsIllegalUnicodeValue(unsigned int iUnicodeValue)
+{
+	return (iUnicodeValue & 0xF800) == 0xD800 // UTF-16 surrogate characters range U+D800..U+DFFF
+		|| iUnicodeValue == 0xFFFE // invalid value
+		|| iUnicodeValue == 0xFFFF; // invalid value
+}
+
+/**
+* This function converts a single wide character to a Unicode scalar value.
+*/
+unsigned int RBase::WideCharToUnicodeValue(wchar_t iWideChar, wchar_t *pErrMsg, bool ibUseSubstitutionCharacter)
+{
+	const wchar_t	FUNC_NAME[] = L"RBase::WideCharToUnicodeValue";
+	// here we assume that wide character encoding is UCS, not UTF
+	unsigned int lUnicodeValue = static_cast<unsigned int>(iWideChar);
+
+	//
+	// The ( lUnicodeValue > 0xFFFF ) condition is necessary while we support at least one platform
+	// where sizeof( wchar_t ) == 2 bytes, and we would like to prohibit Unicode values above 64K
+	// so that UTF conversion behavior on all platforms is identical.
+	//
+	if (IsIllegalUnicodeValue(lUnicodeValue) || (lUnicodeValue > 0xFFFF))
+	{
+		//
+		// ERROR: converted value represents an invalid Unicode value
+		//
+		if (ibUseSubstitutionCharacter)
+		{
+			return UNICODE_REPLACEMENT_CHARACTER;
+		}
+		else
+		{
+			INIT_ERROR_MSG_REF(L"Invalid UNICODE value");
+			throw E_FAIL;
+		}
+	}
+
+	return lUnicodeValue;
+}
+
+char* RBase::WideCharToUTF8(const wchar_t* ipWideChar, unsigned int iLength, wchar_t *pErrMsg, bool ibUseSubstitutionCharacter)
+{
+	if (ipWideChar == NULL)
+		return NULL;
+	const wchar_t	FUNC_NAME[] = L"RBase::WideCharToUTF8";
+	// calculate the buffer size in bytes
+	const size_t lResultLength = ::wcslen(ipWideChar) * MAX_UTF8_SEQUENCE_LENGTH;
+	const size_t lMemSize = (lResultLength + 1) * sizeof(wchar_t);
+
+
+
+	char* lResult = new char[lResultLength + 1];
+	if (!lResult)
+		throw E_OUTOFMEMORY;
+
+
+	// this pointer "walks" through the input buffer
+	const wchar_t* lpWideChar = ipWideChar;
+
+
+	// Note: we use 'unsigned char' for calculations to prevent automatic
+	// sign expansion during 'unsigned Int32' <--> 'char' conversions.
+
+	// this pointer "walks" through the output buffer
+	unsigned char* lpUTF8 = reinterpret_cast<unsigned char*>(lResult);
+
+	for (unsigned int i = 0; *lpWideChar != L'\0' && (iLength == 0 || i < iLength); i++)
+	{
+		unsigned int lnUnicodeValue = WideCharToUnicodeValue(*lpWideChar, pErrMsg, ibUseSubstitutionCharacter);
+
+		if (lnUnicodeValue <= 0x0000007F)
+		{
+			// an ASCII character
+			(*lpUTF8++) = lnUnicodeValue;
+		}
+		else if (lnUnicodeValue <= 0x000007FF)
+		{
+			// a two-byte sequence
+			(*lpUTF8++) = BYTE_11000000 | (lnUnicodeValue >> 6);
+			(*lpUTF8++) = BYTE_10000000 | (lnUnicodeValue & BYTE_00111111);
+		}
+		else if (lnUnicodeValue <= 0x0000FFFF)
+		{
+			// a three-byte sequence
+			(*lpUTF8++) = BYTE_11100000 | (lnUnicodeValue >> 12);
+			(*lpUTF8++) = BYTE_10000000 | ((lnUnicodeValue >> 6) & BYTE_00111111);
+			(*lpUTF8++) = BYTE_10000000 | (lnUnicodeValue & BYTE_00111111);
+		}
+		else
+		{
+			// we check above for anything greater than 0xFFFF
+			_ASSERT(false);
+		}
+
+		++lpWideChar;
+	}
+
+	// null-terminate
+	*lpUTF8 = '\0';
+
+	// make sure we didn't overwrite the buffer
+	_ASSERT(lpUTF8 <= reinterpret_cast<const unsigned char*>(lResult) + lResultLength);
+
+	return lResult;
 }

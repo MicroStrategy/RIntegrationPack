@@ -81,6 +81,44 @@ typedef void (*p_setup_Rmainloop)(void);
 
 enum EnumDefState { dsNotFound, dsParsing, dsFound };
 enum EnumRVarType { rvtInput, rvtOutput, rvtParameter };
+//DE43238 provide support for widechar to utf8 conversion
+namespace RBase
+{
+	// Size (in chars) of a longest UTF-8 sequence.
+	// since we allow only first 64K Unicode values in this implementation,
+	// max UTF-8 sequence length is 4, (Unicode v.3 allows up to 4 octets)
+	const size_t MAX_UTF8_SEQUENCE_LENGTH = 4;
+	//
+	// symbolic names for octet bit-masks
+	//
+	const unsigned char BYTE_10000000 = 0x80;
+	const unsigned char BYTE_11000000 = 0xC0;
+	const unsigned char BYTE_11100000 = 0xE0;
+	const unsigned char BYTE_11110000 = 0xF0;
+	const unsigned char BYTE_11111000 = 0xF8;
+	const unsigned char BYTE_11111100 = 0xFC;
+	const unsigned char BYTE_11111110 = 0xFE;
+
+	const unsigned char BYTE_00111111 = 0x3F;
+	const unsigned char BYTE_00011111 = 0x1F;
+	const unsigned char BYTE_00001111 = 0x0F;
+	const unsigned char BYTE_00000111 = 0x07;
+	const unsigned char BYTE_00000011 = 0x03;
+	const unsigned char BYTE_00000001 = 0x01;
+	// Unicode defines this character to be used whenever conversion
+	// to/from other encodings fails
+	const unsigned short UNICODE_REPLACEMENT_CHARACTER = 0xFFFD;
+	char* WideCharToUTF8(const wchar_t* ipWide, unsigned int iLength, wchar_t *pErrMsg, bool ibUseSubstitutionCharacter = false);
+	bool IsIllegalUnicodeValue(unsigned int iUnicodeValue);
+	unsigned int WideCharToUnicodeValue(wchar_t iWideChar, wchar_t *pErrMsg, bool ibUseSubstitutionCharacter);
+	#ifdef WIN32
+	#include <crtdbg.h>
+	#else
+	#include <assert.h>
+
+	#define _ASSERT(x)	assert(x)
+	#endif
+}
 
 // PKG level class, shared by all executing function objects
 class CRSupport : public IRIPSupport
